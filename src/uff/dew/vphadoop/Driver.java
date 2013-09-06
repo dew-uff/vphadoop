@@ -2,6 +2,8 @@ package uff.dew.vphadoop;
 
 import java.io.IOException;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
@@ -9,6 +11,7 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 import uff.dew.vphadoop.connector.VPInputFormat;
@@ -16,10 +19,14 @@ import uff.dew.vphadoop.connector.VPInputFormat;
 
 
 public class Driver {
-	
+    
 	public static class MyMapper extends Mapper<IntWritable, Text, IntWritable, Text> {
 
+	    public static final Log LOG = LogFactory.getLog(MyMapper.class
+	            .getName());
+	    
 	    public MyMapper() {
+	        LOG.debug("CONSTRUCTOR");
 	        //TODO verify
 	    }
 	    
@@ -45,6 +52,8 @@ public class Driver {
 		
 		job.setOutputKeyClass(LongWritable.class);
 		job.setOutputValueClass(Text.class);
+		
+		job.setNumReduceTasks(0);
 
 		System.exit(job.waitForCompletion(true)?0:1);
 	}

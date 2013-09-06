@@ -44,12 +44,14 @@ public class VPInputSplit extends InputSplit implements Writable {
 
     @Override
     public void write(DataOutput out) throws IOException {
-        //TODO verify this
+        out.writeInt(startPos);
+        out.writeInt(length);
     }
 
     @Override
     public void readFields(DataInput in) throws IOException {
-        //TODO verify this
+        startPos = in.readInt();
+        length = in.readInt();
     }
     
     

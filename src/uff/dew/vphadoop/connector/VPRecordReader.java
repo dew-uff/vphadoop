@@ -72,11 +72,7 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	@Override
 	public float getProgress() throws IOException, InterruptedException {
 	    LOG.debug("getProgress()");
-	    try {
-			return (float)rs.getPosition()/(float)rs.count();
-		} catch (XQException e) {
-			throw new IOException(e);
-		}
+	    return (float)(current-first)/(float)total;
 	}
 
 	@Override
@@ -109,7 +105,7 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 		xquery = conf.get(XmlDBConst.DB_XQUERY);
 		
 		try {
-			XQDataSource xqs = new BaseXXQDataSource();
+			xqs = new BaseXXQDataSource();
 			xqs.setProperty("serverName", server);
 			xqs.setProperty("port", port);
 		} catch (XQException e) {
@@ -139,6 +135,7 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	    LOG.debug("nextKeyValue()");
 	    
 	    try {
+	        current++;
 			return rs.next();
 		} catch (XQException e) {
 			throw new IOException(e);

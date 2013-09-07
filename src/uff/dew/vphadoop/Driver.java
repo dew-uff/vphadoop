@@ -1,17 +1,17 @@
 package uff.dew.vphadoop;
 
 import java.io.IOException;
+import java.util.Iterator;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.hadoop.mapreduce.RecordReader;
+import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 import uff.dew.vphadoop.connector.VPInputFormat;
@@ -26,17 +26,42 @@ public class Driver {
 	            .getName());
 	    
 	    public MyMapper() {
-	        LOG.debug("CONSTRUCTOR");
-	        //TODO verify
+
 	    }
 	    
 		@Override
 		protected void map(IntWritable key, Text value,
 				Context context)
 				throws IOException, InterruptedException {
-			context.write(key, value);
+		    LOG.debug("Reducing " + key + " and " + value);
+			context.write(new IntWritable(value.charAt(0)), value);
 		}
 	}
+	
+	   public static class MyReducer extends Reducer<IntWritable, Text, IntWritable, IntWritable> {
+
+	        public static final Log LOG = LogFactory.getLog(MyReducer.class
+	                .getName());
+	        
+	        public MyReducer() {
+
+	        }
+
+            @Override
+            protected void reduce(IntWritable key, Iterable<Text> values,
+                    Context context)
+                    throws IOException, InterruptedException {
+                int count;
+                LOG.debug("Processing reduce for: " + key);
+                Iterator<Text> it = values.iterator();
+                for (count = 0; it.hasNext(); count++);
+                LOG.debug("count for: " + key + " = " + count);
+                context.write(key, new IntWritable(count));
+            }
+	        
+	        
+
+	    }
 	
 	public static void main(String[] args) throws Exception {
 		
@@ -49,15 +74,13 @@ public class Driver {
 		FileOutputFormat.setOutputPath(job, new Path(args[0]));
 
 		job.setMapperClass(MyMapper.class);
+		job.setReducerClass(MyReducer.class);
 		
-		job.setOutputKeyClass(LongWritable.class);
+		job.setOutputKeyClass(IntWritable.class);
 		job.setOutputValueClass(Text.class);
-		
-		job.setNumReduceTasks(0);
 
 		System.exit(job.waitForCompletion(true)?0:1);
 	}
-
 
     private static void setDatabaseConfiguration(Configuration conf) {
         conf.set(XmlDBConst.DB_HOST, "127.0.0.1");
@@ -66,7 +89,7 @@ public class Driver {
         conf.set(XmlDBConst.DB_PASSWORD, "admin");
         
         conf.set(XmlDBConst.DB_DOCUMENT, "standard");
-        conf.set(XmlDBConst.DB_XQUERY, "/site/regions/*/item/name");
+        conf.set(XmlDBConst.DB_XQUERY, "/site/people/person[?]/name/text()");
     }
 
 }

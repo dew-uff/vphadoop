@@ -40,7 +40,8 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
 
         List<InputSplit> splits = new ArrayList<InputSplit>();
 
-        int cardinality = Catalog.get(conf).getCardinality(doc, xquery);
+        //int cardinality = Catalog.get(conf).getCardinality(doc, xquery);
+        int cardinality = Catalog.get(conf).getCardinality(doc, "/site/people/person");
         LOG.debug("Cardinality: " + cardinality);
         int step = 1000;
         int begin = 0;

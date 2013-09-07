@@ -27,9 +27,9 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
     public static final Log LOG = LogFactory.getLog(RecordReader.class
             .getName());
 
-	private int current;
 	private int first;
 	private int total;
+	private int current;
 	
 	private XQDataSource xqs = null;
 	private XQResultSequence rs = null;
@@ -40,12 +40,12 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	private String xquery = null;
 	
 	public VPRecordReader() {
-	    LOG.debug("CONSTRUCTOR()");
+	    LOG.debug("CONSTRUCTOR() " + this);
 	}
 	
 	@Override
 	public void close() throws IOException {
-	    LOG.debug("close");
+	    LOG.debug("close() " + this);
 	    try {
 			rs.close();
 		} catch (XQException e) {
@@ -56,12 +56,14 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	@Override
 	public IntWritable getCurrentKey() throws IOException,
 			InterruptedException {
+	    if (current < first || current >= (first+total)) { // none read yet
+	        return null;                                   // or all read.
+	    }
 		return new IntWritable(current);
 	}
 
 	@Override
 	public Text getCurrentValue() throws IOException, InterruptedException {
-	    LOG.debug("getCurrentValue()");
 	    try {
 			return new Text(rs.getItem().getItemAsString(null));
 		} catch (XQException e) {
@@ -71,8 +73,7 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 
 	@Override
 	public float getProgress() throws IOException, InterruptedException {
-	    LOG.debug("getProgress()");
-	    return (float)(current-first)/(float)total;
+	    return (current <= first)?0:((float)(current-first+1)/(float)total);
 	}
 
 	@Override
@@ -86,15 +87,16 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 		VPInputSplit rangeSplit = (VPInputSplit) split;
 		
 		first = rangeSplit.getStartPosition();
-		current = first;
 		total = rangeSplit.getLengh();
+		current = first - 1; // none read. after first call to next it will be
+		                     // first item.
+
+        LOG.debug("initialize() first= " + first + " total= "+ total);
 		
 		readData();
 	}
 
 	private void setupDbClient(TaskAttemptContext ctxt) {
-		
-	    LOG.debug("setupDbClient()");
 		
 	    Configuration conf = ctxt.getConfiguration();
 		String server = conf.get(XmlDBConst.DB_HOST);
@@ -117,12 +119,11 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 
 	private void readData() throws IOException {
 	    
-	    LOG.debug("readData()");
-	    
 	    try {
 			XQConnection conn = xqs.getConnection(user, pass);
 			XQPreparedExpression xqpe =
-			conn.prepareExpression("doc('"+doc+"')"+xquery+"[position()=("+first+" to "+(first+total-1)+")]");
+			//conn.prepareExpression("doc('"+doc+"')"+xquery+"[position()=("+first+" to "+(first+total-1)+")]");
+			        conn.prepareExpression("doc('"+doc+"')"+"/site/people/person"+"[position()=("+first+" to "+(first+total-1)+")]/name/text()");        
 			rs = xqpe.executeQuery();
 		} catch (XQException e) {
 			throw new IOException(e);
@@ -131,12 +132,16 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 
 	@Override
 	public boolean nextKeyValue() throws IOException, InterruptedException {
-		
-	    LOG.debug("nextKeyValue()");
+	    
+	    LOG.debug("nextKeyValue() current= "+ current + 
+	            " total= "+ total);
 	    
 	    try {
-	        current++;
-			return rs.next();
+	        boolean result = rs.next();
+	        if (result) {
+	            current++;
+	        }
+	        return result;
 		} catch (XQException e) {
 			throw new IOException(e);
 		}

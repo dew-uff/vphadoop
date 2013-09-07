@@ -26,10 +26,14 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
     
     public static final Log LOG = LogFactory.getLog(RecordReader.class
             .getName());
+    
+    private static final int NOT_STARTED = -1;
+    private static final int DONE = -2;
 
-	private int first;
-	private int total;
-	private int current;
+	private int first = 0;
+	private int total = 0;
+	
+	private int current = -1;
 	
 	private XQDataSource xqs = null;
 	private XQResultSequence rs = null;
@@ -56,8 +60,8 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	@Override
 	public IntWritable getCurrentKey() throws IOException,
 			InterruptedException {
-	    if (current < first || current >= (first+total)) { // none read yet
-	        return null;                                   // or all read.
+	    if (current == NOT_STARTED || current == DONE) {
+	        return null;
 	    }
 		return new IntWritable(current);
 	}
@@ -73,25 +77,23 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 
 	@Override
 	public float getProgress() throws IOException, InterruptedException {
-	    return (current <= first)?0:((float)(current-first+1)/(float)total);
+	    if (current == NOT_STARTED) return 0;
+	    if (current == DONE) return 1;
+	    return (current-first+1)/(float)total;
 	}
 
 	@Override
 	public void initialize(InputSplit split, TaskAttemptContext ctxt)
 			throws IOException, InterruptedException {
 		
-	    LOG.debug("initialize()");
-	    
 	    setupDbClient(ctxt);
 		
-		VPInputSplit rangeSplit = (VPInputSplit) split;
+		VPInputSplit vpSplit = (VPInputSplit) split;
 		
-		first = rangeSplit.getStartPosition();
-		total = rangeSplit.getLengh();
-		current = first - 1; // none read. after first call to next it will be
-		                     // first item.
-
-        LOG.debug("initialize() first= " + first + " total= "+ total);
+		first = vpSplit.getStartPosition();
+		total = vpSplit.getLengh();
+		
+        LOG.debug("initialize() from " + first + " to " + (first + total - 1));
 		
 		readData();
 	}
@@ -119,12 +121,15 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 
 	private void readData() throws IOException {
 	    
+	    String xquery = new String("doc('"+doc+"')"+"/site/people/person"+"[position()=("+first+" to "+(first+total-1)+")]/name/text()");
+	    LOG.debug("readData() xquery: " + xquery);
 	    try {
 			XQConnection conn = xqs.getConnection(user, pass);
 			XQPreparedExpression xqpe =
 			//conn.prepareExpression("doc('"+doc+"')"+xquery+"[position()=("+first+" to "+(first+total-1)+")]");
-			        conn.prepareExpression("doc('"+doc+"')"+"/site/people/person"+"[position()=("+first+" to "+(first+total-1)+")]/name/text()");        
+			        conn.prepareExpression(xquery);        
 			rs = xqpe.executeQuery();
+			
 		} catch (XQException e) {
 			throw new IOException(e);
 		}
@@ -133,13 +138,12 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	@Override
 	public boolean nextKeyValue() throws IOException, InterruptedException {
 	    
-	    LOG.debug("nextKeyValue() current= "+ current + 
-	            " total= "+ total);
-	    
 	    try {
 	        boolean result = rs.next();
 	        if (result) {
-	            current++;
+	            current = (current == -1)?first:current + 1;
+	        } else {
+	            current = -2;
 	        }
 	        return result;
 		} catch (XQException e) {

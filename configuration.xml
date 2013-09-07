@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<vphadoop>
+    <database>
+        <type>BASEX</type>
+        <host>127.0.0.1</host>
+        <port>1984</port>
+        <username>admin</username>
+        <password>admin</password>
+    </database>
+</vphadoop>

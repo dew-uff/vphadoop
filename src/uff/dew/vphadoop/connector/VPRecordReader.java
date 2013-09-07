@@ -1,13 +1,12 @@
 package uff.dew.vphadoop.connector;
 import java.io.IOException;
 
+import javax.xml.stream.XMLStreamReader;
 import javax.xml.xquery.XQConnection;
 import javax.xml.xquery.XQDataSource;
 import javax.xml.xquery.XQException;
 import javax.xml.xquery.XQPreparedExpression;
 import javax.xml.xquery.XQResultSequence;
-
-import net.xqj.basex.BaseXXQDataSource;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -18,38 +17,39 @@ import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
+import uff.dew.vphadoop.DataSourceFactory;
 import uff.dew.vphadoop.XmlDBConst;
+import uff.dew.vphadoop.xquery.XPathExpression;
 
 
 
 public class VPRecordReader extends RecordReader<IntWritable, Text> {
     
-    public static final Log LOG = LogFactory.getLog(RecordReader.class
-            .getName());
+    public static final Log LOG = LogFactory.getLog(RecordReader.class);
     
+    // flags to indicate current position
     private static final int NOT_STARTED = -1;
     private static final int DONE = -2;
 
 	private int first = 0;
 	private int total = 0;
+	private int selectionLevel = 0;
 	
-	private int current = -1;
+	private int current = NOT_STARTED;
 	
 	private XQDataSource xqs = null;
 	private XQResultSequence rs = null;
 	
-	private String user = null;
-	private String pass = null;
-	private String doc = null;
 	private String xquery = null;
+	private String doc = null;
 	
 	public VPRecordReader() {
-	    LOG.debug("CONSTRUCTOR() " + this);
+	    LOG.trace("CONSTRUCTOR() " + this);
 	}
 	
 	@Override
 	public void close() throws IOException {
-	    LOG.debug("close() " + this);
+	    LOG.trace("close() " + this);
 	    try {
 			rs.close();
 		} catch (XQException e) {
@@ -69,7 +69,9 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	@Override
 	public Text getCurrentValue() throws IOException, InterruptedException {
 	    try {
-			return new Text(rs.getItem().getItemAsString(null));
+	        //XMLStreamReader reader = rs.getItemAsStream();
+			//return new Text(reader.getText());
+	        return new Text(rs.getItemAsString(null));
 		} catch (XQException e) {
 			throw new IOException(e);
 		}
@@ -86,48 +88,38 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	public void initialize(InputSplit split, TaskAttemptContext ctxt)
 			throws IOException, InterruptedException {
 		
-	    setupDbClient(ctxt);
+	    readConfiguration(ctxt.getConfiguration());
 		
 		VPInputSplit vpSplit = (VPInputSplit) split;
 		
 		first = vpSplit.getStartPosition();
 		total = vpSplit.getLengh();
+		selectionLevel = vpSplit.getSelectionLevel();
 		
-        LOG.debug("initialize() from " + first + " to " + (first + total - 1));
+        LOG.trace("initialize() from " + first + " to " + (first + total - 1));
 		
 		readData();
 	}
 
-	private void setupDbClient(TaskAttemptContext ctxt) {
+	private void readConfiguration(Configuration conf) throws IOException {
+
+	    xquery = conf.get(XmlDBConst.DB_XQUERY);
+	    doc = conf.get(XmlDBConst.DB_DOCUMENT);
+	    
+		String configFile = conf.get(XmlDBConst.DB_CONFIGFILE_PATH);
 		
-	    Configuration conf = ctxt.getConfiguration();
-		String server = conf.get(XmlDBConst.DB_HOST);
-		String port = conf.get(XmlDBConst.DB_PORT);
-		user = conf.get(XmlDBConst.DB_USER);
-		pass = conf.get(XmlDBConst.DB_PASSWORD);
-		doc = conf.get(XmlDBConst.DB_DOCUMENT);
-		xquery = conf.get(XmlDBConst.DB_XQUERY);
-		
-		try {
-			xqs = new BaseXXQDataSource();
-			xqs.setProperty("serverName", server);
-			xqs.setProperty("port", port);
-		} catch (XQException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
+		xqs = DataSourceFactory.createDataSource(configFile);
 	}
 
 	private void readData() throws IOException {
 	    
-	    String xquery = new String("doc('"+doc+"')"+"/site/people/person"+"[position()=("+first+" to "+(first+total-1)+")]/name/text()");
-	    LOG.debug("readData() xquery: " + xquery);
+	    XPathExpression xpe = new XPathExpression(doc,xquery);
+	    String selection = "position()=(" + first + " to " + (first+total-1) + ")";
+	    String finalExpr = xpe.getPathWithSelection(selection, selectionLevel);
+	    LOG.debug("readData() xquery: " + finalExpr);
 	    try {
-			XQConnection conn = xqs.getConnection(user, pass);
-			XQPreparedExpression xqpe =
-			//conn.prepareExpression("doc('"+doc+"')"+xquery+"[position()=("+first+" to "+(first+total-1)+")]");
-			        conn.prepareExpression(xquery);        
+			XQConnection conn = xqs.getConnection();
+			XQPreparedExpression xqpe = conn.prepareExpression(finalExpr);        
 			rs = xqpe.executeQuery();
 			
 		} catch (XQException e) {

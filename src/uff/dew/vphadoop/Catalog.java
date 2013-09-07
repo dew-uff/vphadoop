@@ -1,55 +1,51 @@
 package uff.dew.vphadoop;
 import java.io.IOException;
 
+import javax.xml.xquery.XQConnection;
+import javax.xml.xquery.XQDataSource;
+import javax.xml.xquery.XQException;
+import javax.xml.xquery.XQPreparedExpression;
+import javax.xml.xquery.XQResultSequence;
+
 import org.apache.hadoop.conf.Configuration;
 
 
 public class Catalog {
 
-	private static final String cardinalityQuery = "let $elm := doc('#')? return count($elm)";
+	private static final String cardinalityQuery = "let $elm := # return count($elm)";
 	
 	private static Catalog _instance = null;
 	
-	// db connection info
-	private String databaseHost = null;
-	private int databasePort = -1;
-	private String databaseUsername = null;
-	private String databasePassword = null;
+	XQDataSource dataSource;
 	
-	private BaseXClient client = null;
-	
-	private Catalog(Configuration conf) {
-	    
-	    databaseHost = conf.get(XmlDBConst.DB_HOST);
-	    databasePort = Integer.parseInt(conf.get(XmlDBConst.DB_PORT));
-	    databaseUsername = conf.get(XmlDBConst.DB_USER);
-	    databasePassword = conf.get(XmlDBConst.DB_PASSWORD);
-	    
-		try {
-			client = new BaseXClient(databaseHost, databasePort, databaseUsername, databasePassword);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+	private Catalog() {
 	}
 
-	public static Catalog get(Configuration conf) {
+	public static Catalog get() {
 		if (_instance == null) {
-			_instance = new Catalog(conf);
+			_instance = new Catalog();
 		}
 		return _instance;
 	}
 	
-	public int getCardinality(String doc, String element) {
-		String result = "";
-		try {
-			String query = cardinalityQuery.replace("#", doc);
-			query = query.replace("?", element);
-			result = client.executeXQuery(query);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		return Integer.parseInt(result);
-	}
+
+    public void setConfiguration(Configuration conf) throws IOException {
+        
+        String configFile = conf.get(XmlDBConst.DB_CONFIGFILE_PATH);
+        
+        dataSource = DataSourceFactory.createDataSource(configFile);
+    }
 	
+	public int getCardinality(String xpath) throws IOException {
+		try {
+            String query = cardinalityQuery.replace("#", xpath);
+            XQConnection conn = dataSource.getConnection();
+            XQPreparedExpression xpe = conn.prepareExpression(query);
+            XQResultSequence rseq = xpe.executeQuery();
+            rseq.next();
+            return rseq.getInt();
+        } catch (XQException e) {
+            throw new IOException(e);
+        }
+	}
 }

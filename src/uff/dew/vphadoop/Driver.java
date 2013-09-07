@@ -21,9 +21,15 @@ public class Driver {
 	public static void main(String[] args) throws Exception {
 		
 	    LOG.trace("main()");
+
+	    // TODO check arguments
+	    
 	    Configuration conf = new Configuration();
-		setDatabaseConfiguration(conf);
-		
+	    conf.set(XmlDBConst.DB_CONFIGFILE_PATH, args[0]);
+        // TODO read this from a file, in a higher level
+        conf.set(XmlDBConst.DB_XQUERY, "/site/people/person/name/text()");
+		conf.set(XmlDBConst.DB_DOCUMENT, "standard");
+        
 		Job job = new Job(conf,"vphadoop");
 		job.setJarByClass(Driver.class);
 		job.setInputFormatClass(VPInputFormat.class);
@@ -37,19 +43,8 @@ public class Driver {
 		job.setOutputValueClass(IntWritable.class);
 
 		job.setOutputFormatClass(TextOutputFormat.class);
-		FileOutputFormat.setOutputPath(job, new Path(args[0]));
+		FileOutputFormat.setOutputPath(job, new Path(args[1]));
 		
 		System.exit(job.waitForCompletion(true)?0:1);
 	}
-
-    private static void setDatabaseConfiguration(Configuration conf) {
-        conf.set(XmlDBConst.DB_HOST, "127.0.0.1");
-        conf.set(XmlDBConst.DB_PORT, "1984");
-        conf.set(XmlDBConst.DB_USER, "admin");
-        conf.set(XmlDBConst.DB_PASSWORD, "admin");
-        
-        conf.set(XmlDBConst.DB_DOCUMENT, "standard");
-        conf.set(XmlDBConst.DB_XQUERY, "/site/people/person[?]/name/text()");
-    }
-
 }

@@ -17,6 +17,7 @@ import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
 import uff.dew.vphadoop.Catalog;
 import uff.dew.vphadoop.XmlDBConst;
+import uff.dew.vphadoop.xquery.XPathExpression;
 
 public class VPInputFormat extends InputFormat<IntWritable, Text> {
     
@@ -35,13 +36,20 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
             InterruptedException {
 
         Configuration conf = ctxt.getConfiguration();
-        String doc = conf.get(XmlDBConst.DB_DOCUMENT);
+        Catalog.get().setConfiguration(conf);
         String xquery = conf.get(XmlDBConst.DB_XQUERY);
-
+        String doc = conf.get(XmlDBConst.DB_DOCUMENT);
+        
         List<InputSplit> splits = new ArrayList<InputSplit>();
 
-        //int cardinality = Catalog.get(conf).getCardinality(doc, xquery);
-        int cardinality = Catalog.get(conf).getCardinality(doc, "/site/people/person");
+        XPathExpression xpe = new XPathExpression(doc,xquery);
+        
+        // determine partition attribute
+        int cardinality;
+        int level = 0;
+        while ((cardinality = Catalog.get().getCardinality(xpe.getSubPath(level))) == 1) {
+            level++;
+        }
         LOG.debug("Cardinality: " + cardinality);
         int step = 1000;
         int begin = 0;
@@ -49,7 +57,7 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         while (begin < cardinality) {
             int length = (cardinality - begin > step) ? step : cardinality
                     - begin;
-            InputSplit range = new VPInputSplit(begin, length);
+            InputSplit range = new VPInputSplit(begin, length, level);
             splits.add(range);
             begin += step;
         }

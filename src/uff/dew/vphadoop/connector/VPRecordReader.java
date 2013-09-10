@@ -1,7 +1,6 @@
 package uff.dew.vphadoop.connector;
 import java.io.IOException;
 
-import javax.xml.stream.XMLStreamReader;
 import javax.xml.xquery.XQConnection;
 import javax.xml.xquery.XQDataSource;
 import javax.xml.xquery.XQException;
@@ -17,8 +16,8 @@ import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
-import uff.dew.vphadoop.DataSourceFactory;
-import uff.dew.vphadoop.XmlDBConst;
+import uff.dew.vphadoop.VPConst;
+import uff.dew.vphadoop.db.DataSourceFactory;
 import uff.dew.vphadoop.xquery.XPathExpression;
 
 
@@ -103,10 +102,10 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 
 	private void readConfiguration(Configuration conf) throws IOException {
 
-	    xquery = conf.get(XmlDBConst.DB_XQUERY);
-	    doc = conf.get(XmlDBConst.DB_DOCUMENT);
+	    xquery = conf.get(VPConst.DB_XQUERY);
+	    doc = conf.get(VPConst.DB_DOCUMENT);
 	    
-		String configFile = conf.get(XmlDBConst.DB_CONFIGFILE_PATH);
+		String configFile = conf.get(VPConst.DB_CONFIGFILE_PATH);
 		
 		xqs = DataSourceFactory.createDataSource(configFile);
 	}
@@ -135,7 +134,7 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	        if (result) {
 	            current = (current == -1)?first:current + 1;
 	        } else {
-	            current = -2;
+	            current = DONE;
 	        }
 	        return result;
 		} catch (XQException e) {

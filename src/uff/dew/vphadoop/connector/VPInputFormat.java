@@ -15,8 +15,8 @@ import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
-import uff.dew.vphadoop.Catalog;
-import uff.dew.vphadoop.XmlDBConst;
+import uff.dew.vphadoop.VPConst;
+import uff.dew.vphadoop.db.Catalog;
 import uff.dew.vphadoop.xquery.XPathExpression;
 
 public class VPInputFormat extends InputFormat<IntWritable, Text> {
@@ -37,8 +37,8 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
 
         Configuration conf = ctxt.getConfiguration();
         Catalog.get().setConfiguration(conf);
-        String xquery = conf.get(XmlDBConst.DB_XQUERY);
-        String doc = conf.get(XmlDBConst.DB_DOCUMENT);
+        String xquery = conf.get(VPConst.DB_XQUERY);
+        String doc = conf.get(VPConst.DB_DOCUMENT);
         
         List<InputSplit> splits = new ArrayList<InputSplit>();
 

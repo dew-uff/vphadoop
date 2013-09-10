@@ -11,7 +11,7 @@ import javax.xml.xquery.XQDataSource;
 import org.junit.Before;
 import org.junit.Test;
 
-import uff.dew.vphadoop.DataSourceFactory;
+import uff.dew.vphadoop.db.DataSourceFactory;
 
 public class DataSourceFactoryTester {
 

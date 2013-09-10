@@ -1,4 +1,4 @@
-package uff.dew.vphadoop;
+package uff.dew.vphadoop.db;
 import java.io.IOException;
 
 import javax.xml.xquery.XQConnection;
@@ -8,6 +8,8 @@ import javax.xml.xquery.XQPreparedExpression;
 import javax.xml.xquery.XQResultSequence;
 
 import org.apache.hadoop.conf.Configuration;
+
+import uff.dew.vphadoop.VPConst;
 
 
 public class Catalog {
@@ -31,7 +33,7 @@ public class Catalog {
 
     public void setConfiguration(Configuration conf) throws IOException {
         
-        String configFile = conf.get(XmlDBConst.DB_CONFIGFILE_PATH);
+        String configFile = conf.get(VPConst.DB_CONFIGFILE_PATH);
         
         dataSource = DataSourceFactory.createDataSource(configFile);
     }

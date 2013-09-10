@@ -1,4 +1,4 @@
-package uff.dew.vphadoop;
+package uff.dew.vphadoop.job;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -10,6 +10,7 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
+import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.connector.VPInputFormat;
 
 
@@ -25,10 +26,10 @@ public class Driver {
 	    // TODO check arguments
 	    
 	    Configuration conf = new Configuration();
-	    conf.set(XmlDBConst.DB_CONFIGFILE_PATH, args[0]);
+	    conf.set(VPConst.DB_CONFIGFILE_PATH, args[0]);
         // TODO read this from a file, in a higher level
-        conf.set(XmlDBConst.DB_XQUERY, "/site/people/person/name/text()");
-		conf.set(XmlDBConst.DB_DOCUMENT, "standard");
+        conf.set(VPConst.DB_XQUERY, "/site/people/person/name/text()");
+		conf.set(VPConst.DB_DOCUMENT, "standard");
         
 		Job job = new Job(conf,"vphadoop");
 		job.setJarByClass(Driver.class);

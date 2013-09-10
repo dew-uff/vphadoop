@@ -1,4 +1,4 @@
-package uff.dew.vphadoop;
+package uff.dew.vphadoop.job;
 
 import java.io.IOException;
 

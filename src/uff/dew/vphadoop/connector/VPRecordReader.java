@@ -117,9 +117,12 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	    String finalExpr = xpe.getPathWithSelection(selection, selectionLevel);
 	    LOG.debug("readData() xquery: " + finalExpr);
 	    try {
+	        long startTimestamp = System.currentTimeMillis();
 			XQConnection conn = xqs.getConnection();
 			XQPreparedExpression xqpe = conn.prepareExpression(finalExpr);        
 			rs = xqpe.executeQuery();
+			LOG.debug("readData() query executed in " + 
+			        (System.currentTimeMillis()-startTimestamp) +" ms.");
 			
 		} catch (XQException e) {
 			throw new IOException(e);

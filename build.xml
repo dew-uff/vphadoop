@@ -56,7 +56,7 @@
     	<zipfileset src="${lib}/xqj-api-1.0.jar" excludes="META-INF/*" />
     	<zipfileset src="${lib}/xqj2-0.1.0.jar" excludes="META-INF/*" />
     	<manifest>
-    		<attribute name="Main-Class" value="uff.dew.vphadoop.Driver"/>
+    		<attribute name="Main-Class" value="uff.dew.vphadoop.job.Driver"/>
     	</manifest>
   	</jar>
   </target>

@@ -1,0 +1,84 @@
+<project name="vphadoop" default="dist" basedir=".">
+  <description>
+    build file for vphadoop
+  </description>
+
+  <!-- set global properties for this build -->
+  <property name="hadoop.root"  location="/opt/hadoop"/>
+  <property name="project.root" location="/home/hduser/repo/vphadoop"/>
+  <property name="src" location="${project.root}/src/main/java"/>
+  <property name="build" location="${project.root}/build"/>
+  <property name="dist"  location="${project.root}/dist"/>
+  <property name="lib"  location="${project.root}/lib"/>	
+	
+  <path id="hadoop-lib-jars">
+	<fileset dir="${hadoop.root}/">
+	  <include name="hadoop-core-1.2.1.jar" />
+	  <include name="lib/*.jar" />
+	</fileset>
+  </path>
+	
+  <path id="project-libs">
+	<fileset dir="${lib}/">
+	  <include name="basex-xqj-1.2.3.jar" />
+	  <include name="xqj2-0.1.0.jar" />
+	  <include name="xqj-api-1.0.jar" />
+	</fileset>
+  </path>
+	
+  <path id="classpath">
+  	<path refid="hadoop-lib-jars" />
+  	<path refid="project-libs" />
+  </path>
+	
+  <pathconvert property="manifest.classpath" pathsep=" " refid="classpath">
+    <map from="${lib}/" to=""/>
+  </pathconvert>
+	
+  <target name="init">
+    <!-- Create the time stamp -->
+    <tstamp/>
+    <!-- Create the build directory structure used by compile -->
+    <mkdir dir="${build}"/>
+  </target>
+
+  <target name="compile" depends="init"
+        description="compile the source" >
+    <!-- Compile the java code from ${src} into ${build} -->
+    <javac srcdir="${src}" destdir="${build}" debug="true">
+      <classpath refid="classpath"/>
+    </javac>
+  </target>
+
+  <target name="dist" depends="compile"
+        description="generate the distribution" >
+    <!-- Create the distribution directory -->
+    <mkdir dir="${dist}"/>
+
+    <!-- Put everything in ${build} into the MyProject-${DSTAMP}.jar file -->
+    <jar jarfile="${dist}/vphadoop.jar" basedir="${build}">
+    <!--
+    	<zipfileset src="${lib}/basex-xqj-1.2.3.jar" excludes="META-INF/*" />
+    	<zipfileset src="${lib}/xqj-api-1.0.jar" excludes="META-INF/*" />
+    	<zipfileset src="${lib}/xqj2-0.1.0.jar" excludes="META-INF/*" />
+    -->
+    	<manifest>
+    		<attribute name="Main-Class" value="uff.dew.vphadoop.client.VPGui"/>
+    		<attribute name="Class-Path" value="${manifest.classpath}"/>
+    	</manifest>
+  	</jar>
+
+  	<copy todir="${dist}" overwrite="false">
+        <path refid="project-libs"/>
+    </copy>
+
+  </target>
+
+  <target name="clean"
+        description="clean up" >
+    <!-- Delete the ${build} and ${dist} directory trees -->
+    <delete dir="${build}"/>
+    <delete dir="${dist}"/>
+  </target>
+</project>
+

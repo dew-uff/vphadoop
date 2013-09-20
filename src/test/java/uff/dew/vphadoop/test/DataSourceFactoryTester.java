@@ -8,6 +8,9 @@ import java.io.FileWriter;
 
 import javax.xml.xquery.XQDataSource;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -37,7 +40,8 @@ public class DataSourceFactoryTester {
     @Test
     public void testCreateDataSource() {
         try {
-            XQDataSource ds = DataSourceFactory.createDataSource(config.getAbsolutePath());
+            FileSystem fs = FileSystem.get(new Configuration());
+            XQDataSource ds = DataSourceFactory.createDataSource(fs.open(new Path(config.getAbsolutePath())));
             assertEquals("127.0.0.1", ds.getProperty("serverName"));
             assertEquals("1984", ds.getProperty("port"));
             assertEquals("admin", ds.getProperty("user"));

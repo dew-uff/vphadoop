@@ -21,8 +21,7 @@ import uff.dew.vphadoop.xquery.XPathExpression;
 
 public class VPInputFormat extends InputFormat<IntWritable, Text> {
     
-    public static final Log LOG = LogFactory.getLog(VPInputFormat.class
-            .getName());
+    private static final Log LOG = LogFactory.getLog(VPInputFormat.class);
 
     @Override
     public RecordReader<IntWritable, Text> createRecordReader(InputSplit in,

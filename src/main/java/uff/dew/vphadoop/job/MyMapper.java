@@ -10,12 +10,12 @@ import org.apache.hadoop.mapreduce.Mapper;
 
 public class MyMapper extends Mapper<IntWritable, Text, IntWritable, Text> {
 
-    public static final Log LOG = LogFactory.getLog(MyMapper.class);
+    private static final Log LOG = LogFactory.getLog(MyMapper.class);
     
     public MyMapper() {
 
     }
-    
+
     @Override
     protected void map(IntWritable key, Text value,
             Context context)

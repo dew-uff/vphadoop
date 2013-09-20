@@ -10,6 +10,8 @@ import javax.xml.xquery.XQResultSequence;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.InputSplit;
@@ -106,8 +108,9 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	    doc = conf.get(VPConst.DB_DOCUMENT);
 	    
 		String configFile = conf.get(VPConst.DB_CONFIGFILE_PATH);
+		FileSystem dfs = FileSystem.get(conf);
 		
-		xqs = DataSourceFactory.createDataSource(configFile);
+		xqs = DataSourceFactory.createDataSource(dfs.open(new Path(configFile)));
 	}
 
 	private void readData() throws IOException {

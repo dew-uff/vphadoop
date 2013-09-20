@@ -1,6 +1,7 @@
 package uff.dew.vphadoop.db;
 
 import java.io.IOException;
+import java.io.InputStream;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -20,7 +21,7 @@ public class DataSourceFactory {
     
     private static final String TYPE_BASEX = "BASEX";
     
-    public static XQDataSource createDataSource(String configFile) throws IOException {
+    public static XQDataSource createDataSource(InputStream fileStream) throws IOException {
         
         try
         {
@@ -28,7 +29,7 @@ public class DataSourceFactory {
             
             DocumentBuilderFactory b = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = b.newDocumentBuilder();
-            Document doc = builder.parse(configFile);
+            Document doc = builder.parse(fileStream);
             
             if (!doc.getElementsByTagName(CONFIG_FILE_TYPE_ELEMENT).item(0)
                     .getTextContent().equals(TYPE_BASEX)) {

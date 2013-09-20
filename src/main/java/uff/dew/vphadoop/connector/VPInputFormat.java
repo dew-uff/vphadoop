@@ -37,11 +37,11 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         Configuration conf = ctxt.getConfiguration();
         Catalog.get().setConfiguration(conf);
         String xquery = conf.get(VPConst.DB_XQUERY);
-        String doc = conf.get(VPConst.DB_DOCUMENT);
+       // String doc = conf.get(VPConst.DB_DOCUMENT);
         
         List<InputSplit> splits = new ArrayList<InputSplit>();
 
-        XPathExpression xpe = new XPathExpression(doc,xquery);
+        XPathExpression xpe = new XPathExpression(xquery);
         
         // determine partition attribute
         int cardinality;

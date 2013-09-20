@@ -27,15 +27,17 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.connector.VPInputFormat;
-import uff.dew.vphadoop.job.MyMapper;
-import uff.dew.vphadoop.job.MyReducer;
 
 public class VPGui {
+    
+    private static final String FIXED_QUERY = "doc('standard')/site/people/person/name"; 
     
     private JFrame frame;
     
@@ -178,7 +180,7 @@ public class VPGui {
         cl.anchor = GridBagConstraints.WEST;
         pane.add(label, cl);
         
-        queryArea = new JTextArea();
+        queryArea = new JTextArea(FIXED_QUERY);
         queryArea.setBorder(BorderFactory.createEtchedBorder(EtchedBorder.RAISED));
         GridBagConstraints c = new GridBagConstraints();
         c.fill = GridBagConstraints.BOTH;
@@ -255,8 +257,7 @@ public class VPGui {
         conf.set("mapred.job.tracker", "hadoop-dev:9001");
         
         // TODO read this from interface
-        conf.set(VPConst.DB_DOCUMENT, "standard");
-        conf.set(VPConst.DB_XQUERY, "/site/people/person/name/text()");
+        conf.set(VPConst.DB_XQUERY, queryArea.getText().trim());
         conf.set(VPConst.DB_CONFIGFILE_PATH, "configuration.xml");
         
         try {
@@ -299,13 +300,13 @@ public class VPGui {
         
         job.setInputFormatClass(VPInputFormat.class);
         
-        job.setMapperClass(MyMapper.class);
+        job.setMapperClass(Mapper.class);
         job.setMapOutputKeyClass(IntWritable.class);
         job.setMapOutputValueClass(Text.class);
         
-        job.setReducerClass(MyReducer.class);
-        job.setOutputKeyClass(IntWritable.class);
-        job.setOutputValueClass(IntWritable.class);
+//        job.setReducerClass(Reducer.class);
+//        job.setOutputKeyClass(IntWritable.class);
+//        job.setOutputValueClass(Text.class);
 
         job.setOutputFormatClass(TextOutputFormat.class);
         

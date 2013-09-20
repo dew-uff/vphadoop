@@ -4,10 +4,31 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.StringTokenizer;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 public class XPathExpression {
+    
+    private static final Log LOG = LogFactory.getLog(XPathExpression.class);
     
     private List<String> parts;
     private String document;
+
+    public XPathExpression(String xpath) {
+        
+        String[] pieces = xpath.split("(doc\\('|'\\))");
+        LOG.trace("pieces[0] " + pieces[0]);
+        LOG.trace("pieces[1] " + pieces[1]);
+        LOG.trace("pieces[2] " + pieces[2]);
+        document = pieces[1];
+        
+        parts = new ArrayList<String>();
+        
+        StringTokenizer st = new StringTokenizer(pieces[2], "/");
+        while (st.hasMoreTokens()) {
+            parts.add(st.nextToken());
+        }
+    }
     
     public XPathExpression(String doc, String xpath) {
         document = doc;
@@ -50,5 +71,9 @@ public class XPathExpression {
             result.append("/" + parts.get(i));
         }
         return result.toString();
+    }
+    
+    public String getDocument() {
+        return document;
     }
 }

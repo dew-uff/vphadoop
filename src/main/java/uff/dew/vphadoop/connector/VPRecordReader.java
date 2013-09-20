@@ -42,7 +42,7 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	private XQResultSequence rs = null;
 	
 	private String xquery = null;
-	private String doc = null;
+	private StringBuilder result = null;
 	
 	public VPRecordReader() {
 	    LOG.trace("CONSTRUCTOR() " + this);
@@ -61,21 +61,23 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	@Override
 	public IntWritable getCurrentKey() throws IOException,
 			InterruptedException {
-	    if (current == NOT_STARTED || current == DONE) {
-	        return null;
-	    }
-		return new IntWritable(current);
+//	    if (current == NOT_STARTED || current == DONE) {
+//	        return null;
+//	    }
+//		return new IntWritable(current);
+	    return new IntWritable(first);
 	}
 
 	@Override
 	public Text getCurrentValue() throws IOException, InterruptedException {
-	    try {
+//	    try {
 	        //XMLStreamReader reader = rs.getItemAsStream();
 			//return new Text(reader.getText());
-	        return new Text(rs.getItemAsString(null));
-		} catch (XQException e) {
-			throw new IOException(e);
-		}
+	        //return new Text(rs.getItemAsString(null));
+	        return new Text(result.toString());
+//		} catch (XQException e) {
+//			throw new IOException(e);
+//		}
 	}
 
 	@Override
@@ -105,7 +107,6 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	private void readConfiguration(Configuration conf) throws IOException {
 
 	    xquery = conf.get(VPConst.DB_XQUERY);
-	    doc = conf.get(VPConst.DB_DOCUMENT);
 	    
 		String configFile = conf.get(VPConst.DB_CONFIGFILE_PATH);
 		FileSystem dfs = FileSystem.get(conf);
@@ -115,7 +116,7 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 
 	private void readData() throws IOException {
 	    
-	    XPathExpression xpe = new XPathExpression(doc,xquery);
+	    XPathExpression xpe = new XPathExpression(xquery);
 	    String selection = "position()=(" + first + " to " + (first+total-1) + ")";
 	    String finalExpr = xpe.getPathWithSelection(selection, selectionLevel);
 	    LOG.debug("readData() xquery: " + finalExpr);
@@ -136,13 +137,22 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	public boolean nextKeyValue() throws IOException, InterruptedException {
 	    
 	    try {
-	        boolean result = rs.next();
-	        if (result) {
-	            current = (current == -1)?first:current + 1;
-	        } else {
-	            current = DONE;
+	        if (current == DONE) {
+	            return false;
 	        }
-	        return result;
+	        result = new StringBuilder();
+	        while (rs.next()) {
+	            result.append(rs.getItemAsString(null));
+	        }
+	        current = DONE;
+	        return true;
+//	        boolean result = rs.next();
+//	        if (result) {
+//	            current = (current == -1)?first:current + 1;
+//	        } else {
+//	            current = DONE;
+//	        }
+//	        return result;
 		} catch (XQException e) {
 			throw new IOException(e);
 		}

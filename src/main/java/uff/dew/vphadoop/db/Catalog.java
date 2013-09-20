@@ -49,6 +49,8 @@ public class Catalog {
     }
 	
 	public int getCardinality(String xpath) throws IOException {
+	    
+	    LOG.info("xpath: " + xpath);
 		try {
             String query = cardinalityQuery.replace("#", xpath);
             XQConnection conn = dataSource.getConnection();

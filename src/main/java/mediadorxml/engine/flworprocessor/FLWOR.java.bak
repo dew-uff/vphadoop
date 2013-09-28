@@ -1,0 +1,579 @@
+package mediadorxml.engine.flworprocessor;
+
+import java.io.IOException;
+import java.rmi.RemoteException;
+import java.util.ArrayList;
+import java.util.Date;
+
+import mediadorxml.algebra.basic.Predicate;
+import mediadorxml.algebra.basic.TreeNode;
+import mediadorxml.algebra.operators.AbstractOperator;
+import mediadorxml.algebra.operators.ConstructOperator;
+import mediadorxml.algebra.operators.JoinOperator;
+import mediadorxml.algebra.operators.SelectOperator;
+import mediadorxml.algebra.operators.SortOperator;
+import mediadorxml.algebra.operators.functions.FunctionOperator;
+import mediadorxml.engine.flworprocessor.executor.DistributedXQueryEngine;
+import mediadorxml.engine.flworprocessor.util.ComparisonExpr;
+import mediadorxml.engine.flworprocessor.util.OrderSpec;
+import mediadorxml.engine.flworprocessor.util.Variable;
+import mediadorxml.exceptions.AlgebraParserException;
+import mediadorxml.exceptions.FragmentReductionException;
+import mediadorxml.exceptions.OptimizerException;
+import mediadorxml.javaccparser.SimpleNode;
+import mediadorxml.optimizer.Optimizer;
+import mediadorxml.remotewrapper.XQueryResult;
+import mediadorxml.subquery.SubQuery;
+
+public class FLWOR extends Clause{
+
+	protected ArrayList<Variable> vars;
+	protected ArrayList<String> debugStrings;
+	protected ArrayList<Long> debugTimes;
+	protected ArrayList<AbstractOperator> debugPlans;
+	protected ArrayList<SubQuery> subQueries;
+	
+	private OrderByClause orderBy;
+	
+	protected XQueryResult xqResult;
+	
+	public FLWOR() {
+		super();
+		// Inicialização dos ArrayLists
+		this.vars = new ArrayList<Variable>();
+		this.subQueries = new ArrayList<SubQuery>();
+		this.debugStrings = new ArrayList<String>();
+		this.debugTimes = new ArrayList<Long>();	
+		this.debugPlans = new ArrayList<AbstractOperator>();
+	}
+	
+	public void compile(SimpleNode node) throws OptimizerException, FragmentReductionException, AlgebraParserException, IOException {
+		this.compile(node, false);
+	}
+
+	public void compile(SimpleNode node, boolean debug) throws OptimizerException, FragmentReductionException, AlgebraParserException, IOException {
+		// Criação do plano de execução do FLWOR
+		this.generateExecutionPlan(node, debug);
+		
+		// Criação das sub-queries
+		this.generateSubQueries();
+	}
+	
+	public XQueryResult getXqResult() {
+		return xqResult;
+	}
+
+	public void setXqResult(XQueryResult xqResult) {
+		this.xqResult = xqResult;
+	}
+
+	/*
+	 * Montagem do plano de execução da XQuery global através das etapas:
+	 * 	1- Plano algébrico sobre as views globais
+	 *  2- Localização das views globais
+	 *  3- Redução dos fragmentos inúteis
+	 *  4- Otimização do plano de execução e localização das operações
+	 */
+	protected void generateExecutionPlan(final SimpleNode node, final boolean debug) 
+		throws OptimizerException, FragmentReductionException, AlgebraParserException, IOException{
+		
+		//Montagem do plano sobre as views globais
+		this.processSimpleNode(node, debug);
+		if (debug){
+			addDebugInfo();
+		}
+		
+		// Localização das Views Globais
+/*		this.localizeGlobalViews();		
+		if (debug){
+			addDebugInfo();
+		}
+		
+		// Redução dos Fragmentos
+		this.fragmentReduction();		
+		if (debug){
+			addDebugInfo();
+		}
+		
+		// Otimização do plano de execução
+		this.optimizePlan();
+		if (debug){
+			addDebugInfo();
+		}*/
+	}
+
+	protected void addDebugInfo() {
+		this.debugStrings.add(this.toString());
+		this.debugTimes.add(new Long(System.nanoTime()));
+		try{
+			this.debugPlans.add(this.operator.clone());
+		}
+		catch (CloneNotSupportedException cloneExc) {
+			
+		}
+	}
+	
+	/*
+	 * Montagem das sub-queries a partir do plano algébrico otimizado
+	 */
+	protected void generateSubQueries() throws IOException, OptimizerException{
+		final ArrayList constructs = this.operator.getOperatorsListByType("Construct");
+		////System.out.println("FLWOR.java.constructs:"+constructs);
+		/*for (int c = 0; c<constructs.size(); c++){
+			this.subQueries.add(new SubQuery((ConstructOperator)constructs.get(c)));			
+		}*/		
+	}	
+	
+	public ArrayList getSubQueries(){
+		return this.subQueries;
+	}
+	
+	public SubQuery getSubQuery(final int index){
+		return (SubQuery)this.subQueries.get(index);
+	}
+	
+	public String getDebugString(final int index){
+		String returnStr = "";
+		if ((this.debugStrings != null) && (index < this.debugStrings.size())){
+			returnStr = (String)this.debugStrings.get(index);
+		}
+		
+		return returnStr;
+	}
+	
+	public long getDebugTime(final int index){
+		long returnTime = 0;
+		
+		if ((this.debugTimes != null) && (index < this.debugTimes.size())){
+			returnTime = this.debugTimes.get(index).longValue();
+		}
+		
+		return returnTime;
+	}
+	
+	public AbstractOperator getDebugPlan(final int index){
+		if ((this.debugPlans != null) && (index < this.debugPlans.size())){
+			return this.debugPlans.get(index);
+		}
+		else{
+			return null;
+		}
+	}
+	
+	/*
+	 * Execução do FLWOR através das suas sub-queries
+	 */
+	public void execute(boolean debug) throws RemoteException{
+		// Execução do plano de execução montado na inicialização
+
+		DistributedXQueryEngine dxe = new DistributedXQueryEngine(this.subQueries);
+		this.setXqResult(dxe.executeAll());
+	}
+	
+	protected void processSimpleNode(SimpleNode node, boolean debug) throws AlgebraParserException{
+		if (debug){
+			this.debugTrace(node);
+		}
+				
+		final String element = node.toString();
+		boolean processChild = true;
+		//------------------------------------------
+		//FOR Clause:
+		if ("ForClause".equals(element)){
+			final ForClause forClause = new ForClause();
+			forClause.compileForLet(node, debug);
+			this.insertForLet(forClause);			
+			processChild = false;
+		}
+		//------------------------------------------
+		//LET Clause:
+		else if ("LetClause".equals(element)){
+			LetClause letClause = new LetClause();
+			letClause.compileForLet(node, debug);
+			this.insertForLet(letClause);
+			processChild = false;
+		}
+		//------------------------------------------
+		//WHERE Clause:
+		else if ("WhereClause".equals(element)){
+			WhereClause where = new WhereClause(node, debug);
+			for (int i=0; i<where.getComparisons().size(); i++){
+				this.insertComparison(where.getComparisons().get(i));
+			}
+			
+			processChild = false;
+		}
+        //------------------------------------------
+		//ORDER BY Clause:
+		else if ("OrderByClause".equals(element)){
+			orderBy = new OrderByClause(node, debug);
+			processChild = false;
+		}
+		//------------------------------------------
+		//RETURN Clause:
+		else if ("ElmtConstructor".equals(element)){
+			ReturnClause ret = new ReturnClause(node, debug);
+			AbstractOperator constructReturn = ret.getOperator();
+			
+			// Inclusão do operador SORT abaixo do Construct, caso haja ORDER BY na consulta
+			if (orderBy != null){
+				SortOperator sort = new SortOperator();
+				for (int i=0; i<orderBy.getOrderSpecList().size(); i++){
+					int lcl = orderBy.getOrderSpecList().get(i).getPathLcl();
+					String pred = lcl + " ";
+					if (orderBy.getOrderSpecList().get(i).isAscending())
+						pred += "ASCENDING";
+					else
+						pred += "DESCENDING";
+					sort.getPredicateList().add(pred);
+				}
+				constructReturn.addChild(sort);
+				constructReturn = sort;
+			}
+			
+			// Processamento dos operadores de Funções de Agregação
+			for (int i=0; i<ret.getFunctionOperatorsList().size(); i++){
+				AbstractOperator sel = ret.getFunctionOperatorsList().get(i);
+				
+				// Substituição da variável pelo NodeId (LCL)
+				TreeNode rootNode = sel.getApt().getAptNode().getRootNode();
+				int nodeId = this.getVarNodeId(rootNode.getLabel());
+				if (nodeId == -1){
+					throw new AlgebraParserException("Variable " + rootNode.getLabel() + " does not exist");
+				}
+				rootNode.setLabel(nodeId);
+				rootNode.setIsKeyNode(true);
+				
+				constructReturn.addChild(sel);
+				constructReturn = sel;
+			}
+			
+			// Processamento dos Selects para preparação do Construct/Sort
+			for (int i=0; i<ret.getSelectOperatorsList().size(); i++){
+				AbstractOperator sel = ret.getSelectOperatorsList().get(i);
+				
+				// Substituição da variável pelo NodeId (LCL)
+				TreeNode n = sel.getApt().getAptNode().getRootNode();
+				int nodeId = this.getVarNodeId(n.getLabel());
+				if (nodeId == -1){
+					throw new AlgebraParserException("Variable " + n.getLabel() + " does not exist");
+				}
+				n.setLabel(nodeId);
+				n.setIsKeyNode(true);
+				
+				constructReturn.addChild(sel);
+				constructReturn = sel;
+			}
+			
+			// Inclusão dos Selects referentes ao ORDER BY, se houver
+			if (orderBy != null){
+				for (int i=0; i<orderBy.getOrderSpecList().size(); i++){
+					OrderSpec s = orderBy.getOrderSpecList().get(i);
+					TreeNode n = s.getTreeNode().getRootNode();
+					int nodeId = this.getVarNodeId(n.getLabel());
+					n.setLabel(nodeId);
+					n.setIsKeyNode(true);
+					
+					// 0- Buscar se já existe operador de Select para a variável do order by
+					AbstractOperator op = constructReturn;
+					AbstractOperator opEncontrado = null;
+					while (op.getParentOperator() != null){
+						TreeNode nn = op.getApt().getAptRootNode();
+						if ((nn != null) && (nn.getLabelLCLid() == nodeId)){
+							opEncontrado = op;
+							break;
+						}
+						op = op.getParentOperator();
+					}
+					
+					// 1- Se já existir, faremos um merge das árvores
+					if (opEncontrado != null){
+						opEncontrado.getApt().mergeTree(n);
+					}
+					else{
+						// 2- Se não existir, criamos um novo operador Select para esta variável
+						SelectOperator sel = new SelectOperator();
+						sel.getApt().setAptNode(n);
+						constructReturn.addChild(sel);
+						constructReturn = sel;
+					}
+				}
+			}
+			
+			
+			//Inclusão dos operadores de seleção abaixo do último nível dos operadores de construção
+			constructReturn.addChild(this.operator);
+			
+			
+			this.operator = constructReturn.getRootOperator();
+			
+			processChild = false;
+		}
+			
+		if (processChild & (node.jjtGetNumChildren()>0)){
+			for (int i=0; i<node.jjtGetNumChildren(); i++){
+				this.processSimpleNode((SimpleNode)node.jjtGetChild(i), debug);
+			}
+		}
+	}
+	
+	protected AbstractOperator buildJoin(AbstractOperator op1, AbstractOperator op2) 
+		throws AlgebraParserException{
+		
+		// Tratamento de mais de um FOR na XQuery (Join de Selects)
+		JoinOperator join = new JoinOperator();
+		join.addChild(op1);
+		join.addChild(op2);
+		join.generateApt();
+		return join;
+	}
+	
+	protected void insertForLet(ForLetClause forlet) throws AlgebraParserException{
+		if (this.operator == null)
+			this.operator = forlet.getOperator();  // Select Operator
+		else{
+			// Verificação se o nodo raíz não é referente a uma outra variável
+			TreeNode n = forlet.getOperator().getApt().getAptRootNode();
+			String label = n.getLabel();
+			//Se começar com "$" faz referência a outra variável
+			if (label.charAt(0) == '$'){
+				int varId = this.getVarNodeId(label.substring(1, label.length()));
+				// Inclusão da árvore abaixo do nodo da variável
+				TreeNode varNode = this.operator.findNodeInPlanById(varId);
+				
+				n.setLabel(varNode.getNodeId());
+				AbstractOperator op = forlet.getOperator();
+				op.addChild(this.operator);
+				this.operator = op;
+			}
+			else{ // Outra view global = join
+				this.operator = this.buildJoin(this.operator, forlet.getOperator());
+			}
+		}
+		
+		Variable var = forlet.getVariable();
+		if (var != null){
+			this.vars.add(var);
+		}
+	}
+	
+	protected void insertComparison(ComparisonExpr comp){
+		
+		// Verificação se a comparação era predicado de junção
+		if (comp.isJoinComparison()){
+			// Inserir predicado de junção no operador Join
+			this.insertJoinPredicate(comp);
+		}
+		// Se for comparação utilizando uma função tipo agregaçao (count, avg)
+		else if (comp.isFunctionComparison()){
+			this.insertFunctionFilter(comp);
+		}
+		else{
+			this.insertTreeNodeSimplePath(comp.getTreeNode().getRootNode());
+		}
+	}
+	
+	protected void insertTreeNodeSimplePath(TreeNode node){
+		// Variável da comparação
+		String varName = node.getLabel();
+		
+		// Busca do NodeId referente à variável
+		int nodeId = this.getVarNodeId(varName);
+		
+		// Busca do nodo onde a comparação será inserida
+		TreeNode nodePosition = this.operator.findNodeInPlanById(nodeId);
+		
+		// Remoção do Root node com a variável
+		node = node.getChild(0);
+		node.setParentNode(null);
+		
+		// Inclusão do nodo de comparação no plano
+		nodePosition.addChild(node);
+	}
+	
+	protected void insertJoinPredicate(ComparisonExpr comp){
+		
+		String pred = comp.getJoinPredicate();
+
+		TreeNode n1 = comp.getTreeNode().getRootNode();
+		TreeNode n2 = comp.getTreeNodeJoin().getRootNode();
+		
+		// Busca dos key nodes referentes aos LCLs encontrados
+		int lclKN1 = this.getVarNodeId(n1.getLabel());
+		int lclKN2 = this.getVarNodeId(n2.getLabel());
+		
+		// Busca do operador Join que possui os LCLs dos Key Nodes encontrados
+		ArrayList<AbstractOperator> joins = this.operator.getOperatorsListByType("Join");
+		for (int i=0; i< joins.size(); i++){
+			AbstractOperator join = joins.get(i);
+			TreeNode joinNode = join.getApt().getAptRootNode();
+			
+			int inseridos = 0;
+			// Inclusão dos nodos do predicado de junção no operador Join
+			if (joinNode.getChild(0).getLabelLCLid() == lclKN1){
+				joinNode.getChild(0).addChild(n1.getChild(0));
+				inseridos++;
+			}
+			else if (joinNode.getChild(0).getLabelLCLid() == lclKN2){
+				joinNode.getChild(0).addChild(n2.getChild(0));
+				inseridos++;
+			}
+			if (joinNode.getChild(1).getLabelLCLid() == lclKN1){
+				joinNode.getChild(1).addChild(n1.getChild(0));
+				inseridos++;
+			}
+			else if (joinNode.getChild(1).getLabelLCLid() == lclKN2){
+				joinNode.getChild(1).addChild(n2.getChild(0));
+				inseridos++;
+			}				
+			
+			// Inclusão do predicado de junção
+			if (inseridos == 2){
+				join.getPredicateList().add(pred);
+			}
+			else if (inseridos == 1){
+				// Verificação se um dos filhos aponta para outro Join
+				TreeNode refNode0 = join.findNodeInChildrenById(joinNode.getChild(0).getLabelLCLid());
+				TreeNode refNode1 = join.findNodeInChildrenById(joinNode.getChild(1).getLabelLCLid());
+				if ((refNode0.getLabel().equals("Join_root")) || (refNode1.getLabel().equals("Join_root"))){
+					// Como um dos filhos é outro Join, o predicado é deste Join
+					join.getPredicateList().add(pred);
+				}
+			}
+		}
+	}
+	
+	protected void insertFunctionFilter(ComparisonExpr comp){
+		
+		// Criação de um operador para a função
+		FunctionOperator funcOp = FunctionOperator.buildFunction(comp.getFunctionName());
+		
+		TreeNode node = comp.getTreeNode().getRootNode();
+		
+		// Atualização do nodo raíz para trocar o nome da variável pelo seu LCL
+		node.setLabel(this.getVarNodeId(node.getLabel()));
+		node.setIsKeyNode(true);
+		
+		// Inclusão do predicado do TreeNode no predicado do operador
+		TreeNode lastNode = node;
+		while(lastNode.hasChield()){
+			lastNode = lastNode.getChild(0);
+			lastNode.setMatchSpec(TreeNode.MatchSpecEnum.ZERO_MORE); 
+		}
+		Predicate pred = lastNode.getPredicate();
+		String lastNodeLCL = lastNode.getLCL(); 
+		lastNode.setPredicate(null); // remoção do predicado do nodo
+		
+		funcOp.getApt().setAptNode(node);
+		funcOp.getPredicateList().add(lastNodeLCL + pred.toString());  // inclusão do predicado no operador
+		
+		// Inclusão do Operador da função no plano algébrico global
+		funcOp.addChild(this.operator);
+		this.operator = funcOp;
+		
+	}
+	
+	protected int getVarNodeId(String varName){
+		int returnInt = -1;
+		if (this.vars != null){
+			for(int i=0; i<this.vars.size();i++){
+				Variable var = (Variable)this.vars.get(i);
+				if (var.getVarName().equals(varName)){
+					returnInt = var.getNodeId();
+					break;
+				}
+			}
+		}
+		return returnInt;
+	}
+	
+	protected void localizeGlobalViews() 
+		throws OptimizerException, AlgebraParserException, IOException{
+				
+		// Busca dos operadores Select para localização das views globais
+		ArrayList opsSelect = this.operator.getOperatorsListByType("Select");
+		
+		// Para cada operador Select, faremos a localização da view global
+		for (int i=0; i<opsSelect.size(); i++){
+			AbstractOperator select = (AbstractOperator)opsSelect.get(i);
+			// Validação se o operador é sobre uma View Global
+			if (!select.getApt().getAptRootNode().isLabelLCL()){
+				
+				// Recuperação do NodeId chave do Select que será substituído
+				int keyNodeId = select.getApt().getKeyNode().getNodeId();
+				
+				// Recuperação do operador pai e remoção do seu filho "select"
+				AbstractOperator selectParent = select.getParentOperator();
+				selectParent.getChildOperators().remove(select);
+				
+				// Inclusão do novo filho localizado
+				AbstractOperator childLocalized = Optimizer.localizeGlobalViews((SelectOperator)select);
+				childLocalized.getApt().getKeyNode().setNodeId(keyNodeId);
+				selectParent.addChild(childLocalized);				
+			}
+		}
+	}
+	
+	protected void fragmentReduction() 
+		throws FragmentReductionException, OptimizerException, IOException{
+		// Redução dos fragmentos inúteis
+		
+		// Busca dos operadores Select para localização das views locais
+		ArrayList opsSelect = this.operator.getOperatorsListByType("Select");
+		
+		// Para cada operador Select, validaremos a sua utilidade para o resultado da consulta
+		for (int i=0; i<opsSelect.size(); i++){
+			SelectOperator select = (SelectOperator)opsSelect.get(i);
+			
+			// Validação da utilidade da operação sobre o fragmento
+			if (!select.getApt().getAptRootNode().isLabelLCL()){
+				if (!Optimizer.isSelectOperatorUseful(select)){
+					// Remoção do operador do plano de execução
+					
+					if (select.hasChild())
+						throw new FragmentReductionException("Invalid fragment reduction - Operator to be removed can not have child.");
+					
+					// Recuperação do operador irmão, que irá substituir o pai do operador removido
+					AbstractOperator selectParent = select.getParentOperator();
+					AbstractOperator selectGrandParent = selectParent.getParentOperator();
+					AbstractOperator selectBrother = null;
+					for (int j=0; j<selectParent.getChildOperators().size(); j++){
+						if (selectParent.getChildAt(j) != select){
+							selectBrother = selectParent.getChildAt(j);
+							break;
+						}
+					}
+					
+					// Substituição do pai do operador removido pelo seu irmão
+					int keyNodeId = selectParent.getApt().getKeyNode().getNodeId();
+					selectBrother.getApt().getKeyNode().setNodeId(keyNodeId);
+					selectGrandParent.getChildOperators().remove(selectParent);
+					selectGrandParent.addChild(selectBrother);
+					select = null;
+					
+					// Atualização dos predicados dos Joins de fragmentos verticais
+					if (selectBrother.getName().equals("Join") && selectBrother.isLocalizationOperator()){
+						Optimizer.generateJoinPredicate(selectBrother);
+					}
+					else if (selectGrandParent.getName().equals("Join") && selectGrandParent.isLocalizationOperator()){
+						Optimizer.generateJoinPredicate(selectGrandParent);
+					}
+				}
+				else{
+					// Se o fragmento for útil:
+					
+					// 1. Poda dos nodos filhos do keyNode que não fazem parte do fragmento (vertical)
+					Optimizer.pruneNodesNotInFragment(select.getApt().getKeyNode(), select);
+					
+					// 2. Poda dos nodos pais do keyNode que não fazem parte da projeção do fragmento (vertical)
+					// -- Comentado devido a mudança na recomposição dos fragmentos verticais com raízes diferentes
+					//Optimizer.pruneNodesNotInProjection(select.getApt().getKeyNode(), select);
+				}
+			}
+		}		
+	}
+	
+	protected void optimizePlan() throws OptimizerException, IOException{		
+		this.operator = Optimizer.optimizePlan(this.operator);
+	}
+}

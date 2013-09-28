@@ -62,4 +62,12 @@ public class Catalog {
             throw new IOException(e);
         }
 	}
+
+    public XQDataSource getDataSource() {
+        return dataSource;
+    }
+    
+    public XQConnection openConnection() throws XQException {
+        return dataSource.getConnection();
+    }
 }

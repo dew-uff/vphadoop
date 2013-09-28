@@ -37,7 +37,16 @@ import uff.dew.vphadoop.connector.VPInputFormat;
 
 public class VPGui {
     
-    private static final String FIXED_QUERY = "doc('standard')/site/people/person/name"; 
+    private static final String FIXED_QUERY = "" + 
+            " <results> \r\n" +
+            " { \r\n"+
+            "   for $p in doc('standard')/site/people/person \r\n"+
+            " return \r\n"+
+            "  <person> \r\n"+
+            "    {$p/name} \r\n"+
+            "  </person> \r\n"+
+            " } \r\n"+ 
+            " </results>"; 
     
     private JFrame frame;
     

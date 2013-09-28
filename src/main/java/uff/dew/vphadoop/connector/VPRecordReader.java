@@ -32,9 +32,9 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
     private static final int NOT_STARTED = -1;
     private static final int DONE = -2;
 
-	private int first = 0;
-	private int total = 0;
-	private int selectionLevel = 0;
+	//private int first = 0;
+	//private int total = 0;
+	//private int selectionLevel = 0;
 	
 	private int current = NOT_STARTED;
 	
@@ -65,11 +65,12 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 //	        return null;
 //	    }
 //		return new IntWritable(current);
-	    return new IntWritable(first);
+	    return new IntWritable(1);
 	}
 
 	@Override
 	public Text getCurrentValue() throws IOException, InterruptedException {
+	    LOG.debug("getCurrentValue() = "+result.toString());
 //	    try {
 	        //XMLStreamReader reader = rs.getItemAsStream();
 			//return new Text(reader.getText());
@@ -84,7 +85,8 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	public float getProgress() throws IOException, InterruptedException {
 	    if (current == NOT_STARTED) return 0;
 	    if (current == DONE) return 1;
-	    return (current-first+1)/(float)total;
+	    //return (current-first+1)/(float)total;
+	    return 1;
 	}
 
 	@Override
@@ -95,11 +97,14 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 		
 		VPInputSplit vpSplit = (VPInputSplit) split;
 		
-		first = vpSplit.getStartPosition();
-		total = vpSplit.getLengh();
-		selectionLevel = vpSplit.getSelectionLevel();
+		xquery = vpSplit.getFragment();
 		
-        LOG.trace("initialize() from " + first + " to " + (first + total - 1));
+//		first = vpSplit.getStartPosition();
+//		total = vpSplit.getLengh();
+//		selectionLevel = vpSplit.getSelectionLevel();
+		
+		LOG.debug("xquery: " + xquery);
+        //LOG.trace("initialize() from " + first + " to " + (first + total - 1));
 		
 		readData();
 	}
@@ -116,9 +121,10 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 
 	private void readData() throws IOException {
 	    
-	    XPathExpression xpe = new XPathExpression(xquery);
-	    String selection = "position()=(" + first + " to " + (first+total-1) + ")";
-	    String finalExpr = xpe.getPathWithSelection(selection, selectionLevel);
+	    //XPathExpression xpe = new XPathExpression(xquery);
+	    //String selection = "position()=(" + first + " to " + (first+total-1) + ")";
+	    //String finalExpr = xpe.getPathWithSelection(selection, selectionLevel);
+	    String finalExpr = xquery.split("#")[1];
 	    LOG.debug("readData() xquery: " + finalExpr);
 	    try {
 	        long startTimestamp = System.currentTimeMillis();
@@ -128,6 +134,13 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 			LOG.debug("readData() query executed in " + 
 			        (System.currentTimeMillis()-startTimestamp) +" ms.");
 			
+			result = new StringBuilder();
+			while (rs.next()) {
+                result.append(rs.getItemAsString(null));
+            }
+			
+			rs.close();
+			conn.close();
 		} catch (XQException e) {
 			throw new IOException(e);
 		}
@@ -135,26 +148,10 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 
 	@Override
 	public boolean nextKeyValue() throws IOException, InterruptedException {
-	    
-	    try {
-	        if (current == DONE) {
-	            return false;
-	        }
-	        result = new StringBuilder();
-	        while (rs.next()) {
-	            result.append(rs.getItemAsString(null));
-	        }
-	        current = DONE;
-	        return true;
-//	        boolean result = rs.next();
-//	        if (result) {
-//	            current = (current == -1)?first:current + 1;
-//	        } else {
-//	            current = DONE;
-//	        }
-//	        return result;
-		} catch (XQException e) {
-			throw new IOException(e);
-		}
+        if (current == DONE) {
+            return false;
+        }
+        current = DONE;
+        return true;
 	}
 }

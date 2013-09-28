@@ -8,10 +8,12 @@ import org.apache.hadoop.mapreduce.InputSplit;
 
 
 public class VPInputSplit extends InputSplit implements Writable {
+    
+    private String query;
 	
-	private int startPos = -1;
-	private int length = -1;
-	private int level = -1;
+//	private int startPos = -1;
+//	private int length = -1;
+//	private int level = -1;
 
 	private static String[] nodes = {"127.0.0.1"};
 	
@@ -19,10 +21,11 @@ public class VPInputSplit extends InputSplit implements Writable {
 	    //TODO verify this
 	}
 	
-	public VPInputSplit(int start, int length, int level) {
-		this.startPos = start;
-		this.length = length;
-		this.level = level;
+	public VPInputSplit(String query) {
+//		this.startPos = start;
+//		this.length = length;
+//		this.level = level;
+	    this.query = query;
 	}
 	
 	@Override
@@ -36,31 +39,29 @@ public class VPInputSplit extends InputSplit implements Writable {
 		return nodes;
 	}
 
-	public int getStartPosition() {
-		return startPos;
-	}
-	
-	public int getLengh() {
-		return length;
-	}
-	
-	public int getSelectionLevel() {
-	    return level;
-	}
+//	public int getStartPosition() {
+//		return startPos;
+//	}
+//	
+//	public int getLengh() {
+//		return length;
+//	}
+//	
+//	public int getSelectionLevel() {
+//	    return level;
+//	}
 
     @Override
     public void write(DataOutput out) throws IOException {
-        out.writeInt(startPos);
-        out.writeInt(length);
-        out.writeInt(level);
+        out.writeUTF(query);
     }
 
     @Override
     public void readFields(DataInput in) throws IOException {
-        startPos = in.readInt();
-        length = in.readInt();
-        level = in.readInt();
+        query = in.readUTF();
     }
-    
-    
+
+    public String getFragment() {
+        return query;
+    }
 }

@@ -33,6 +33,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -41,6 +42,7 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.connector.VPInputFormat;
+import uff.dew.vphadoop.job.MyReducer;
 
 public class VPGui {
     
@@ -268,7 +270,7 @@ public class VPGui {
         c.gridx = 0;
         c.gridy = 7;
         c.gridwidth = 2;
-        c.insets = new Insets(10, 10, 10, 0);
+        c.insets = new Insets(10, 10, 0, 0);
         c.anchor = GridBagConstraints.WEST;
         pane.add(new JLabel("Map progress"), c);
         
@@ -277,8 +279,8 @@ public class VPGui {
         c.weighty = 0.0;
         c.gridx = 2;
         c.gridy = 7;
-        c.gridwidth = 2;
-        c.insets = new Insets(10, 0, 10, 0);
+        c.gridwidth = 6;
+        c.insets = new Insets(10, 0, 0, 10);
         mapProgress = new JProgressBar(0,100);
         pane.add(mapProgress,c);
 
@@ -286,8 +288,8 @@ public class VPGui {
         c.fill = GridBagConstraints.NONE;
         c.weightx = 0.0; 
         c.weighty = 0.0;
-        c.gridx = 4;
-        c.gridy = 7;
+        c.gridx = 0;
+        c.gridy = 8;
         c.gridwidth = 2;
         c.insets = new Insets(10, 10, 10, 0);
         c.anchor = GridBagConstraints.WEST;
@@ -296,9 +298,9 @@ public class VPGui {
         c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 0.5;
         c.weighty = 0.0;
-        c.gridx = 6;
-        c.gridy = 7;
-        c.gridwidth = 2;
+        c.gridx = 2;
+        c.gridy = 8;
+        c.gridwidth = 6;
         c.insets = new Insets(10, 0, 10, 10);
         reduceProgress = new JProgressBar(0,100);
         pane.add(reduceProgress,c);
@@ -359,7 +361,10 @@ public class VPGui {
             
             queryButton.setEnabled(false);
             mapProgress.setValue(0);
+            mapProgress.setString("");
             reduceProgress.setValue(0);
+            reduceProgress.setString("");
+            outputArea.setText("");
             
             startTrackingStatus();
          
@@ -376,8 +381,12 @@ public class VPGui {
             public void run() {
                 try {
                     while (!job.isComplete()) {
-                        mapProgress.setValue(Math.round(job.mapProgress()*100));
-                        reduceProgress.setValue(Math.round(job.reduceProgress()*100));
+                        int mapProgressValue = Math.round(job.mapProgress()*100);
+                        int reduceProgressValue = Math.round(job.reduceProgress()*100);
+                        mapProgress.setValue(mapProgressValue);
+                        mapProgress.setString(mapProgressValue + " %");
+                        reduceProgress.setValue(reduceProgressValue);
+                        reduceProgress.setString(reduceProgressValue + " %");
                         Thread.sleep(2000);
                     }
                     queryButton.setEnabled(true);
@@ -397,6 +406,7 @@ public class VPGui {
     private void showOutput() {
         try {
             FileSystem fs = FileSystem.get(URI.create("vphadoop"), job.getConfiguration());
+            //TODO change this
             Path resultFile = new Path(outputPath, "part-r-00000");
             FSDataInputStream in = fs.open(resultFile);
             BufferedReader br = new BufferedReader(new InputStreamReader(in));
@@ -441,9 +451,9 @@ public class VPGui {
         job.setMapOutputKeyClass(IntWritable.class);
         job.setMapOutputValueClass(Text.class);
         
-//        job.setReducerClass(Reducer.class);
-//        job.setOutputKeyClass(IntWritable.class);
-//        job.setOutputValueClass(Text.class);
+        job.setReducerClass(MyReducer.class);
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(NullWritable.class);
 
         job.setOutputFormatClass(TextOutputFormat.class);
         

@@ -1,6 +1,7 @@
 package uff.dew.vphadoop.connector;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,6 +14,8 @@ import mediadorxml.fragmentacaoVirtualSimples.SubQuery;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.InputFormat;
@@ -59,13 +62,18 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
 
         String[] queries = getQueries();
         
-        
-        
         for (int i = 0; i < queries.length; i++) {
             LOG.debug("Query["+i+"]= " + queries[i]);
             InputSplit is = new VPInputSplit(queries[i]);
             splits.add(is);
         }
+        
+        //HACK
+        FileSystem fs = FileSystem.get(conf);
+        OutputStream hack = fs.create(new Path("hack.txt"));
+        hack.write(queries[0].getBytes());
+        hack.close();
+        
 //        XPathExpression xpe = new XPathExpression(xquery);
 //        
 //        // determine partition attribute
@@ -168,13 +176,13 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         if ( q.getqueryExprType()!= null && !q.getqueryExprType().contains("collection") ) { // se a consulta de entrada não contém collection, execute a fragmentação virtual.
         
             engine = new XQueryEngine();
-            engine.execute(xquery, true); // Para debugar o parser, passe o segundo parâmetro como true.                
+            engine.execute(xquery, false); // Para debugar o parser, passe o segundo parâmetro como true.                
             
             q.setJoinCheckingFinished(true);
             
             if (q.isExistsJoin()){
                 q.setOrderBy("");                       
-                engine.execute(xquery, true); // Executa pela segunda vez, porém desta vez fragmenta apenas um dos joins
+                engine.execute(xquery, false); // Executa pela segunda vez, porém desta vez fragmenta apenas um dos joins
             }               
             
         }
@@ -183,7 +191,7 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
             // Efetua o parser da consulta para identificar os elementos contidos em funções de agregação ou order by, caso existam.
             q.setOrderBy("");
             engine = new XQueryEngine();
-            engine.execute(originalQuery, true);
+            engine.execute(originalQuery, false);
             
             if (q.getPartitioningPath()!=null && !q.getPartitioningPath().equals("")) {
                 SubQuery sbq = SubQuery.getUniqueInstance(false); 

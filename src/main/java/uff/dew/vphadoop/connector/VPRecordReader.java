@@ -1,16 +1,7 @@
 package uff.dew.vphadoop.connector;
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
-import java.io.Reader;
 import java.io.StringReader;
-
-import javax.xml.xquery.XQConnection;
-import javax.xml.xquery.XQDataSource;
-import javax.xml.xquery.XQException;
-import javax.xml.xquery.XQPreparedExpression;
-import javax.xml.xquery.XQResultSequence;
 
 import mediadorxml.fragmentacaoVirtualSimples.Query;
 import mediadorxml.fragmentacaoVirtualSimples.SubQuery;
@@ -18,8 +9,6 @@ import mediadorxml.fragmentacaoVirtualSimples.SubQuery;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.InputSplit;
@@ -28,7 +17,6 @@ import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
 import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.db.Catalog;
-import uff.dew.vphadoop.db.DatabaseFactory;
 
 
 
@@ -42,14 +30,10 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	
 	private int current = NOT_STARTED;
 	
-	private Catalog catalog = null;
-	private XQResultSequence rs = null;
-	
 	private String xquery = null;
 	private String result = null;
 
-    private SubQuery sbq;
-	
+    private SubQuery sbq;	
 	
 	public VPRecordReader() {
 	    LOG.trace("CONSTRUCTOR() " + this);
@@ -124,11 +108,8 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	private void readData() throws IOException {
 	    
 	    LOG.debug("readData() xquery: " + xquery);
-	    try {
-	        result = parallelProcessingRun();
-		} catch (XQException e) {
-			throw new IOException(e);
-		}
+
+        result = parallelProcessingRun();
 	}
 	
 	private void parallelProcessingInit() throws IOException {
@@ -139,68 +120,67 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	/**
 	 * From SVP code (adapted) 
 	 */
-	private String parallelProcessingRun() throws XQException {
+	private String parallelProcessingRun() throws IOException {
 	    
-	    LOG.info("VPRecordReader - consulta: " + xquery);
+	    LOG.debug("VPRecordReader - consulta: " + xquery);
 	    
 	    String result = "";
 	            
-	    String query = "";
+	    String query = "";  
+
+        Query q = Query.getUniqueInstance(true);
+        long startTime; 
+        long delay;
+        long tmp;  
+        StringReader sr = new StringReader(xquery);
+        BufferedReader buff = new BufferedReader(sr);
+        String line;
         
-        try {
-            Query q = Query.getUniqueInstance(true);
-            long startTime; 
-            long delay;
-            long tmp;  
-            StringReader sr = new StringReader(xquery);
-            BufferedReader buff = new BufferedReader(sr);
-            String line;
-            
-            while((line = buff.readLine()) != null){    
-                if (!line.toUpperCase().contains("<ORDERBY>") && !line.toUpperCase().contains("<ORDERBYTYPE>") 
-                        && !line.toUpperCase().contains("<AGRFUNC>")) {                         
-                    query = query + " " + line;
-                }
-                else {
-                    // obter as cláusulas do orderby e de funçoes de agregaçao
-                    if (line.toUpperCase().contains("<ORDERBY>")){
-                        String orderByClause = line.substring(line.indexOf("<ORDERBY>")+"<ORDERBY>".length(), line.indexOf("</ORDERBY>"));
-                        q.setOrderBy(orderByClause);
-                    }
-                    
-                    if (line.toUpperCase().contains("<ORDERBYTYPE>")){
-                        String orderByType= line.substring(line.indexOf("<ORDERBYTYPE>")+"<ORDERBYTYPE>".length(), line.indexOf("</ORDERBYTYPE>"));                         
-                        q.setOrderByType(orderByType);
-                    }
-                    
-                    if (line.toUpperCase().contains("<AGRFUNC>")){ // soma 1 para excluir a tralha contida apos a tag <AGRFUNC>
-                        
-                        String aggregateFunctions = line.substring(line.indexOf("<AGRFUNC>")+"<AGRFUNC>".length(), line.indexOf("</AGRFUNC>"));
-                                                    
-                        if (!aggregateFunctions.equals("") && !aggregateFunctions.equals("{}")) {
-                            String[] functions = aggregateFunctions.split(","); // separa todas as funções de agregação utilizadas no return statement.
-                        
-                            if (functions!=null) {
-                                
-                                for (String keyMap: functions) {
-                        
-                                    String[] hashParts = keyMap.split("=");
-                                    
-                                    if (hashParts!=null) {
-                        
-                                        q.setAggregateFunc(hashParts[0], hashParts[1]); // o par CHAVE, VALOR
-                                    }
-                                }
-                                
-                            }
-                        }                       
-                    }                       
-                }
+        while((line = buff.readLine()) != null){    
+            if (!line.toUpperCase().contains("<ORDERBY>") && !line.toUpperCase().contains("<ORDERBYTYPE>") 
+                    && !line.toUpperCase().contains("<AGRFUNC>")) {                         
+                query = query + " " + line;
             }
+            else {
+                // obter as cláusulas do orderby e de funçoes de agregaçao
+                if (line.toUpperCase().contains("<ORDERBY>")){
+                    String orderByClause = line.substring(line.indexOf("<ORDERBY>")+"<ORDERBY>".length(), line.indexOf("</ORDERBY>"));
+                    q.setOrderBy(orderByClause);
+                }
+                
+                if (line.toUpperCase().contains("<ORDERBYTYPE>")){
+                    String orderByType= line.substring(line.indexOf("<ORDERBYTYPE>")+"<ORDERBYTYPE>".length(), line.indexOf("</ORDERBYTYPE>"));                         
+                    q.setOrderByType(orderByType);
+                }
+                
+                if (line.toUpperCase().contains("<AGRFUNC>")){ // soma 1 para excluir a tralha contida apos a tag <AGRFUNC>
+                    
+                    String aggregateFunctions = line.substring(line.indexOf("<AGRFUNC>")+"<AGRFUNC>".length(), line.indexOf("</AGRFUNC>"));
+                                                
+                    if (!aggregateFunctions.equals("") && !aggregateFunctions.equals("{}")) {
+                        String[] functions = aggregateFunctions.split(","); // separa todas as funções de agregação utilizadas no return statement.
+                    
+                        if (functions!=null) {
                             
-            startTime = System.nanoTime(); // inicializa o contador de tempo.   
-            
-            result = SubQuery.executeSubQuery(query);
+                            for (String keyMap: functions) {
+                    
+                                String[] hashParts = keyMap.split("=");
+                                
+                                if (hashParts!=null) {
+                    
+                                    q.setAggregateFunc(hashParts[0], hashParts[1]); // o par CHAVE, VALOR
+                                }
+                            }
+                            
+                        }
+                    }                       
+                }                       
+            }
+        }
+                        
+        startTime = System.nanoTime(); // inicializa o contador de tempo.   
+        
+        result = SubQuery.executeSubQuery(query);
             
 //            // tempo de leitura de arquivo + execução da consulta
 //            delay = ((System.nanoTime() - startTime)/1000000);
@@ -223,10 +203,6 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 //        } catch (FileNotFoundException e) {
 //            // TODO Auto-generated catch block
 //            e.printStackTrace();
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } 
 //        finally {
 //            try {
 //                if (xqr!=null) xqr.close();

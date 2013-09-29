@@ -21,11 +21,12 @@ public class XQueryEngine {
 		this.flworList = new ArrayList<FLWOR>();
 	}
 	
-	public void execute(String xquery) {
+	//TODO Customize this Exception
+	public void execute(String xquery) throws IOException {
 		this.execute(xquery, false);
 	}
 	
-	public void execute(String xquery, boolean debug) {
+	public void execute(String xquery, boolean debug) throws IOException {
 		
 		IdGenerator.reset();
 		
@@ -47,7 +48,7 @@ public class XQueryEngine {
 				
 		}
 		catch(Exception exc){
-			exc.printStackTrace();
+			throw new IOException(exc);
 		}
 	}
 	

@@ -1,17 +1,39 @@
 package uff.dew.vphadoop.job;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.util.Iterator;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.Set;
+
+import javax.xml.xquery.XQException;
+
+import mediadorxml.fragmentacaoVirtualSimples.Query;
+import mediadorxml.fragmentacaoVirtualSimples.SubQuery;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 
-public class MyReducer extends Reducer<IntWritable, Text, IntWritable, IntWritable> {
+import uff.dew.vphadoop.db.Catalog;
+import uff.dew.vphadoop.db.Database;
 
-    public static final Log LOG = LogFactory.getLog(MyReducer.class);
+public class MyReducer extends Reducer<IntWritable, Text, Text, NullWritable> {
+
+    private static final Log LOG = LogFactory.getLog(MyReducer.class);
+    
+    private static final String TEMP_COLLECTION_NAME = "tmpResultadosParciais";
+    
+    // HACK
+    private String retorno;
     
     public MyReducer() {
 
@@ -21,15 +43,421 @@ public class MyReducer extends Reducer<IntWritable, Text, IntWritable, IntWritab
     protected void reduce(IntWritable key, Iterable<Text> values,
             Context context)
             throws IOException, InterruptedException {
-        int count;
-        LOG.trace("Reducing key: " + key);
-        Iterator<Text> it = values.iterator();
-        for (count = 0; it.hasNext(); count++ ) 
-            it.next();
-        LOG.trace("count for: " + key + " = " + count);
-        context.write(key, new IntWritable(count));
+        
+        // put every partial result in a temp collection at the database
+        Configuration conf = context.getConfiguration();
+        Catalog.get().setConfiguration(conf);
+        Database db = Catalog.get().getDatabase();
+        loadIntoDatabase(db,values);
+        
+        // the constructFinalQuery (below) was originally executed using the same context
+        // previously used to retrieve a partial result. That means that some singletons
+        // objects were populated when compiling the final result. Now we don't have that 
+        // information, so we need to restore it.
+        repopulateQueryAndSubQueryObjects(conf);      
+
+        // construct the query to get the result from the temp collection
+        String finalQuery = constructFinalQuery();
+        LOG.info("Final Query: " + finalQuery);
+        
+        // execute the final query
+        String result = "";
+        try {
+            result = db.executeQueryAsString(finalQuery);
+        }
+        catch (XQException e) {
+            throw new IOException(e);
+        }
+        
+        // output the result
+        context.write(new Text(result), NullWritable.get());
     }
     
-    
+    // HACK
+    private void repopulateQueryAndSubQueryObjects(Configuration conf) throws IOException {
 
+        String query = "";
+        Query q = Query.getUniqueInstance(true);
+        SubQuery sbq = SubQuery.getUniqueInstance(true);
+        FileSystem fs = FileSystem.get(conf);
+        InputStream file = fs.open(new Path("hack.txt"));
+        
+        InputStreamReader reader = new InputStreamReader(file);
+        BufferedReader buff = new BufferedReader(reader);
+        
+        String line;
+        while((line = buff.readLine()) != null){    
+            if (!line.toUpperCase().contains("<ORDERBY>") && !line.toUpperCase().contains("<ORDERBYTYPE>") 
+                    && !line.toUpperCase().contains("<AGRFUNC>")) {                         
+                query = query + " " + line;
+            }
+            else {
+                // obter as cláusulas do orderby e de funçoes de agregaçao
+                if (line.toUpperCase().contains("<ORDERBY>")){
+                    String orderByClause = line.substring(line.indexOf("<ORDERBY>")+"<ORDERBY>".length(), line.indexOf("</ORDERBY>"));
+                    q.setOrderBy(orderByClause);
+                }
+                
+                if (line.toUpperCase().contains("<ORDERBYTYPE>")){
+                    String orderByType= line.substring(line.indexOf("<ORDERBYTYPE>")+"<ORDERBYTYPE>".length(), line.indexOf("</ORDERBYTYPE>"));                         
+                    q.setOrderByType(orderByType);
+                }
+                
+                if (line.toUpperCase().contains("<AGRFUNC>")){ // soma 1 para excluir a tralha contida apos a tag <AGRFUNC>
+                    
+                    String aggregateFunctions = line.substring(line.indexOf("<AGRFUNC>")+"<AGRFUNC>".length(), line.indexOf("</AGRFUNC>"));
+                                                
+                    if (!aggregateFunctions.equals("") && !aggregateFunctions.equals("{}")) {
+                        String[] functions = aggregateFunctions.split(","); // separa todas as funções de agregação utilizadas no return statement.
+                    
+                        if (functions!=null) {
+                            
+                            for (String keyMap: functions) {
+                    
+                                String[] hashParts = keyMap.split("=");
+                                
+                                if (hashParts!=null) {
+                    
+                                    q.setAggregateFunc(hashParts[0], hashParts[1]); // o par CHAVE, VALOR
+                                }
+                            }
+                            
+                        }
+                    }                       
+                }                       
+            }
+        }
+        
+        if (retorno.indexOf("<idOrdem>") != -1 )
+            retorno = retorno.substring(retorno.indexOf("<partialResult>")+"<partialResult>".length(), retorno.indexOf("<idOrdem>"));
+        else
+            retorno = retorno.substring(retorno.indexOf("<partialResult>")+"<partialResult>".length(), retorno.indexOf("</partialResult>"));
+        
+        if ( retorno.trim().lastIndexOf("<") != 0 ) {                   
+            
+            sbq.setConstructorElement(SubQuery.getConstructorElement(retorno)); // Usado para a composicao do resultado final.
+            
+            //String intervalBeginning = SubQuery.getIntervalBeginning(xquery);
+            
+            if ( sbq.getElementAfterConstructor().equals("") ) {
+                sbq.setElementAfterConstructor(SubQuery.getElementAfterConstructorElement(retorno, sbq.getConstructorElement()));
+            }
+            
+            if (sbq.isUpdateOrderClause()) {
+                SubQuery.getElementsAroundOrderByElement(query, sbq.getElementAfterConstructor());
+            }
+            
+            if (!q.isOrderByClause()) { // se a consulta original nao possui order by adicione o elemento idOrdem
+                retorno = SubQuery.addOrderId(retorno, "");
+                //storeResultInXMLDocument(SubQuery.addOrderId(retorno, intervalBeginning), intervalBeginning);
+            }
+            else { // se a consulta original possui order by apenas adicione o titulo do xml.
+                retorno = SubQuery.getTitle() + "<partialResult>\r\n" + retorno + "\r\n</partialResult>";
+                //storeResultInXMLDocument(retorno, intervalBeginning);
+            }
+        }
+    }
+
+    private void loadIntoDatabase(Database db, Iterable<Text> values) throws IOException {
+        try {
+
+            // save all partial results as files in a temp directory
+            File tempDir = createTempDirectory();
+            LOG.debug("temp dir: " + tempDir.getAbsolutePath());
+            
+            for (Text partial : values) {
+                File xml = File.createTempFile("partial", ".xml", tempDir);
+                LOG.debug("creating temp file: " + xml.getAbsolutePath());
+                FileWriter fw = new FileWriter(xml);
+                retorno = partial.toString();
+                fw.write(retorno);
+                fw.close();
+            }
+            
+            db.deleteCollection(TEMP_COLLECTION_NAME);
+            db.createCollectionWithContent(TEMP_COLLECTION_NAME, tempDir.getAbsolutePath());
+            
+            deleteTempDirectory(tempDir);
+            
+        } catch (XQException e) {
+            throw new IOException(e);
+        }
+    }
+    
+    /**
+     * From FinalResult.getFinalResult (adapted)
+     * 
+     * @return
+     * @throws IOException
+     */
+    private String constructFinalQuery() throws IOException {
+        
+        Query q = Query.getUniqueInstance(true);
+        SubQuery sbq = SubQuery.getUniqueInstance(true);
+
+        String finalResultXquery = "";
+        String orderByClause = "";
+        String variableName = "$ret";
+
+
+
+        // possui funcoes de agregacao na clausula LET.
+        if (q.getAggregateFunctions() != null
+                && q.getAggregateFunctions().size() > 0) { 
+
+            finalResultXquery = sbq.getConstructorElement()
+                    + "{ \r\n"
+                    + " let $c:= collection('"+TEMP_COLLECTION_NAME+"')/partialResult/"
+                    + sbq.getConstructorElement().replaceAll("[</>]", "")
+                    + "\r\n"
+                    // + " where $c/element()/name()!='idOrdem'"
+                    + " \r\n return \r\n\t" + "<"
+                    + sbq.getElementAfterConstructor().replaceAll("[</>]", "")
+                    + ">";
+
+            Set<String> keys = q.getAggregateFunctions().keySet();
+            for (String function : keys) {
+                String expression = q.getAggregateFunctions().get(function);
+                String elementsAroundFunction = "";
+
+                if (expression.indexOf(":") != -1) {
+                    elementsAroundFunction = expression.substring(
+                            expression.indexOf(":") + 1, expression.length());
+                    expression = expression.substring(0,
+                            expression.indexOf(":"));
+                }
+
+                // o elemento depois do return possui sub-elementos.
+                if (elementsAroundFunction.indexOf("/") != -1) { 
+                    // elementsAroundFunction =
+                    // elementsAroundFunction.substring(elementsAroundFunction.indexOf("/")+1,
+                    // elementsAroundFunction.length());
+                    String[] elm = elementsAroundFunction.split("/");
+
+                    for (String openElement : elm) {
+                        // System.out.println("FinalResult.getFinalResult():"+elm.length+","+sbq.getElementAfterConstructor().replaceAll("[</>]",
+                        // "") +",el:"+openElement);
+
+                        if (!openElement.equals("") &&
+                            !openElement.equals(sbq
+                                        .getElementAfterConstructor()
+                                        .replaceAll("[</>]", ""))) {
+                            // System.out.println("FinalResult.getFinalResult(); armazenar o el:::"+openElement);
+                            finalResultXquery = finalResultXquery + "\r\n\t\t"
+                                    + " <" + openElement + ">";
+                        }
+                    }
+
+                    elm = elementsAroundFunction.split("/");
+                    String subExpression = expression.substring(
+                            expression.indexOf("$"), expression.length());
+                    // System.out.println("FinalResult.getFinalResult(); subExpression o el:::"+subExpression);
+
+                    if (subExpression.indexOf("/") != -1) { // agregacao com
+                                                            // caminho xpath.
+                                                            // Ex.:
+                                                            // count($c/total)
+                        subExpression = subExpression.substring(
+                                subExpression.indexOf("/") + 1,
+                                subExpression.length());
+                        // System.out.println("FinalResult.getFinalResult(); depois alterar o el:::"+subExpression+",el:"+elementsAroundFunction);
+                        expression = expression.replace("$c/" + subExpression,
+                                "$c/" + elementsAroundFunction + ")");
+
+                        // System.out.println("FinalResult.getFinalResult(); depois alterar o expression:::"+expression);
+
+                    } else { // agregacao sem caminho xpath. Ex.: count($c)
+                        expression = expression.replace("$c", "$c/"
+                                + elementsAroundFunction);
+                    }
+
+                    if (expression.indexOf("count(") >= 0) {
+                        expression = expression.replace("count(", "sum("); // pois
+                                                                            // deve-se
+                                                                            // somar
+                                                                            // os
+                                                                            // valores
+                                                                            // já
+                                                                            // previamente
+                                                                            // computados
+                                                                            // nos
+                                                                            // resultados
+                                                                            // parciais.
+                    }
+
+                    finalResultXquery = finalResultXquery + "{ " + expression
+                            + "}";
+
+                    for (int i = elm.length - 1; i >= 0; i--) {
+                        String closeElement = elm[i];
+
+                        if (!closeElement.equals("")
+                                && !closeElement.equals(sbq
+                                        .getElementAfterConstructor()
+                                        .replaceAll("[</>]", ""))) {
+                            // System.out.println("FinalResult.getFinalResult(); armazenar o el:::"+closeElement);
+                            finalResultXquery = finalResultXquery + "\r\n\t\t"
+                                    + " </" + closeElement + ">";
+                        }
+                    }
+
+                } else { // apos o elemento depois do return estah a funcao de
+                            // agregacao. ex.: return <resp> count($c) </resp>
+                    elementsAroundFunction = "";
+                    expression = expression.replace(
+                            "$c)",
+                            "$c/"
+                                    + sbq.getElementAfterConstructor().replaceAll(
+                                            "[</>]", "") + ")");
+                    // System.out.println("FinalResult.getFinalResult(); entrei!!!!!!!!!!!"+expression+","+sbq.getElementAfterConstructor());
+
+                    String subExpression = expression.substring(
+                            expression.indexOf("$"), expression.length());
+
+                    if (subExpression.indexOf("/") != -1) { // agregacao com
+                                                            // caminho xpath.
+                                                            // Ex.:
+                                                            // count($c/total)
+                        subExpression = subExpression.substring(
+                                subExpression.indexOf("/") + 1,
+                                subExpression.length());
+                        // System.out.println("FinalResult.getFinalResult(); depois alterar o el:::"+subExpression+",el:"+elementsAroundFunction);
+                        expression = expression.replace(
+                                "$c/" + subExpression,
+                                "$c/"
+                                        + sbq.getElementAfterConstructor()
+                                                .replaceAll("[</>]", "") + ")");
+
+                        // System.out.println("FinalResult.getFinalResult(); depois alterar o expression:::"+expression);
+
+                    } else { // agregacao sem caminho xpath. Ex.: count($c)
+                        expression = expression.replace(
+                                "$c",
+                                "$c/"
+                                        + sbq.getElementAfterConstructor()
+                                                .replaceAll("[</>]", ""));
+                    }
+
+                    if (expression.indexOf("count(") >= 0) {
+                        expression = expression.replace("count(", "sum("); // pois
+                                                                            // deve-se
+                                                                            // somar
+                                                                            // os
+                                                                            // valores
+                                                                            // já
+                                                                            // previamente
+                                                                            // computados
+                                                                            // nos
+                                                                            // resultados
+                                                                            // parciais.
+                    }
+
+                    finalResultXquery = finalResultXquery + "{ " + expression
+                            + "}";
+                }
+
+                /*
+                 * System.out.println("FinalResult.getFinalResult(), EXPRESSION:"
+                 * +expression + ", ELEROUND:"+elementsAroundFunction);
+                 * finalResultXquery = finalResultXquery + "\r\n\t\t" + "{ <" +
+                 * elementsAroundFunction + ">" + "\r\n\t" + expression + "} </"
+                 * + elementsAroundFunction + "> ";
+                 */
+
+            } // fim for
+
+            finalResultXquery = finalResultXquery + "\r\n\t"
+                    + sbq.getElementAfterConstructor().replace("<", "</") + " } "
+                    + sbq.getConstructorElement().replace("<", "</");
+
+            // System.out.println("FinalResult.getFinalResult(): consulta final eh:"+finalResultXquery);
+
+        }
+
+        else if (!q.getOrderBy().trim().equals("")) { // se a consulta original
+                                                        // possui order by,
+                                                        // acrescentar na
+                                                        // consulta final o
+                                                        // order by original.
+
+            String[] orderElements = q.getOrderBy().trim().split("\\$");
+            for (int i = 0; i < orderElements.length; i++) {
+                String subOrder = ""; // caminho apos a definicao da variavel.
+                                        // Ex.: $order/shipdate. subOrder recebe
+                                        // shipdate.
+                int posSlash = orderElements[i].trim().indexOf("/");
+
+                if (posSlash != -1) {
+                    subOrder = orderElements[i].trim().substring(posSlash + 1,
+                            orderElements[i].length());
+                    if (subOrder.charAt(subOrder.length() - 1) == '/') {
+                        subOrder = subOrder.substring(0, subOrder.length() - 1);
+                    }
+                }
+
+                if (!subOrder.equals("")) {
+                    orderByClause = orderByClause
+                            + (orderByClause.equals("") ? "" : ", ")
+                            + variableName + "/" + subOrder;
+                }
+            }
+
+            finalResultXquery = sbq.getConstructorElement()
+                    + " {  "
+                    + " for $ret in collection('"+TEMP_COLLECTION_NAME+"')/partialResult/"
+                    + sbq.getConstructorElement().replaceAll("[</>]", "") + "/"
+                    + sbq.getElementAfterConstructor().replaceAll("[</>]", "")
+                    + " order by " + orderByClause + " return $ret" + " } "
+                    + sbq.getConstructorElement().replace("<", "</");
+
+            // System.out.println("finalresult.java:"+ finalResultXquery);
+        } else { // se a consulta original nao possui order by, acrescentar na
+                    // consulta final a ordenacao de acordo com a ordem dos
+                    // elementos nos documentos pesquisados.
+            orderByClause = "$ret/idOrdem";
+
+            finalResultXquery = sbq.getConstructorElement()
+                    + " {  "
+                    + " for $ret in collection('"+TEMP_COLLECTION_NAME+"')/partialResult"
+                    + " let $c:= $ret/"
+                    + sbq.getConstructorElement().replaceAll("[</>]", "")
+                    + "/element()" // where $ret/element()/name()!='idOrdem'"
+                    + " order by " + orderByClause + " ascending"
+                    + " return $c" + " } "
+                    + sbq.getConstructorElement().replace("<", "</");
+
+            // System.out.println("finalresult.java:"+ finalResultXquery);
+        }
+        
+        return finalResultXquery;
+    }
+        
+        
+    private static File createTempDirectory() throws IOException {
+        final File temp;
+
+        temp = File.createTempFile("temp", Long.toString(System.nanoTime()));
+
+        if(!(temp.delete()))
+        {
+            throw new IOException("Could not delete temp file: " + temp.getAbsolutePath());
+        }
+
+        if(!(temp.mkdir()))
+        {
+            throw new IOException("Could not create temp directory: " + temp.getAbsolutePath());
+        }
+
+        return (temp);
+    }
+    
+    private static void deleteTempDirectory(File tempDir) throws IOException {
+        
+        File[] innerFiles = tempDir.listFiles();
+        for(File f : innerFiles) {
+            f.delete();
+        }
+        
+        tempDir.delete();
+    }
 }

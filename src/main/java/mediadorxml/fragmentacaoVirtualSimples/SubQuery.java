@@ -104,7 +104,7 @@ public class SubQuery {
 	/* Metodo para execucao das sub-consultas geradas na fragmentacao virtual simples */
 	public static String executeSubQuery(String xquery) throws IOException {
 		
-	    LOG.info("ExecuteSubQuery - XQuery: " + xquery);
+	    LOG.debug("ExecuteSubQuery - XQuery: " + xquery);
 //		XQResultSequence xqr = null;
 //		XQExpression xqe = null;
 //		XQConnection xqc = null;
@@ -171,7 +171,7 @@ public class SubQuery {
 //				// TODO Auto-generated catch block
 //				e.printStackTrace();
 //			}		
-			LOG.info("ExecuteSubQuery - retorno: " + retorno);			
+			LOG.trace("ExecuteSubQuery - retorno: " + retorno);			
 			return retorno;
 			
 		} catch (XQException e) {
@@ -519,11 +519,10 @@ public class SubQuery {
 	
 	public static String getConstructorElement(String xquery){
 		
-		int posPositionLessThan = xquery.trim().indexOf("<");		
-		String subXquery = xquery.substring(posPositionLessThan, xquery.length());
-		int posPositionGreaterThan = xquery.trim().indexOf(">");	 
-		String constructorElement = subXquery.substring(posPositionLessThan, posPositionGreaterThan+1);
-		
+		String trimmedXquery = xquery.trim();
+	    int posPositionLessThan = trimmedXquery.indexOf("<");	
+		int posPositionGreaterThan = trimmedXquery.indexOf(">");	 
+		String constructorElement = trimmedXquery.substring(posPositionLessThan, posPositionGreaterThan+1);
 		// Isso ocorre quando a consulta nao retorna elementos para o intervalo especificado, retornando apenas a tag do 
 		// elemento construtor. Ex.: <results/>
 		if (constructorElement.indexOf("/>") != -1) {

@@ -1,12 +1,9 @@
 package uff.dew.vphadoop.test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 import java.io.File;
 import java.io.FileWriter;
-
-import javax.xml.xquery.XQDataSource;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -14,9 +11,10 @@ import org.apache.hadoop.fs.Path;
 import org.junit.Before;
 import org.junit.Test;
 
-import uff.dew.vphadoop.db.DataSourceFactory;
+import uff.dew.vphadoop.db.Database;
+import uff.dew.vphadoop.db.DatabaseFactory;
 
-public class DataSourceFactoryTester {
+public class DatabaseTester {
 
     private File config; 
     
@@ -38,18 +36,31 @@ public class DataSourceFactoryTester {
     }
 
     @Test
-    public void testCreateDataSource() {
+    public void testCreateDatabaseObject() {
         try {
             FileSystem fs = FileSystem.get(new Configuration());
-            XQDataSource ds = DataSourceFactory.createDataSource(fs.open(new Path(config.getAbsolutePath())));
-            assertEquals("127.0.0.1", ds.getProperty("serverName"));
-            assertEquals("1984", ds.getProperty("port"));
-            assertEquals("admin", ds.getProperty("user"));
-            assertEquals("admin", ds.getProperty("password"));
+            Database ds = DatabaseFactory.createDatabase(fs.open(new Path(config.getAbsolutePath())));
+            assertEquals("127.0.0.1", ds.getHost());
+            assertEquals(1984, ds.getPort());
+            assertEquals("admin", ds.getUsername());
+            assertEquals("admin", ds.getPassword());
         } catch (Exception e) {
             fail("something is not right");
         }
         
+    }
+    
+    @Test
+    public void testCreateDeleteCollectionInDatabase() {
+        try {
+            FileSystem fs = FileSystem.get(new Configuration());
+            Database ds = DatabaseFactory.createDatabase(fs.open(new Path(config.getAbsolutePath())));
+            ds.createCollection("thisIsaTest");
+            assertNotNull(ds.executeQuery("collection('thisIsaTest')"));
+            ds.deleteCollection("thisIsaTest");
+        } catch (Exception e) {
+            fail("something is not right" + e.getMessage());
+        }        
     }
 
 }

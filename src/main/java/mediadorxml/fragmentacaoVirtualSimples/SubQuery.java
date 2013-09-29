@@ -6,15 +6,19 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 
-import javax.xml.xquery.XQConnection;
 import javax.xml.xquery.XQException;
-import javax.xml.xquery.XQExpression;
-import javax.xml.xquery.XQResultSequence;
 
 import mediadorxml.catalog.CatalogManager;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import uff.dew.vphadoop.db.Catalog;
+import uff.dew.vphadoop.db.Database;
 
 public class SubQuery {
+    
+    private static Log LOG = LogFactory.getLog(SubQuery.class);
 
 	protected static SubQuery sbq;
 	protected ArrayList<String> subqueries = null;
@@ -100,70 +104,74 @@ public class SubQuery {
 	/* Metodo para execucao das sub-consultas geradas na fragmentacao virtual simples */
 	public static String executeSubQuery(String xquery) throws IOException {
 		
-		XQResultSequence xqr = null;
-		XQExpression xqe = null;
-		XQConnection xqc = null;
+	    LOG.info("ExecuteSubQuery - XQuery: " + xquery);
+//		XQResultSequence xqr = null;
+//		XQExpression xqe = null;
+//		XQConnection xqc = null;
 		String retorno = "";
-		CatalogManager cm = CatalogManager.getUniqueInstance();
+//		CatalogManager cm = CatalogManager.getUniqueInstance();
 		
 		try {
 			
-			//ConnectionSedna con = new ConnectionSedna();
-			//xqc = con.establishSednaConnection();	
-		    xqc = Catalog.get().openConnection();
-			xqe = xqc.createExpression();			
+		    Database db = Catalog.get().getDatabase();
+		    
+		    retorno = db.executeQueryAsString(xquery);
+//			//ConnectionSedna con = new ConnectionSedna();
+//			//xqc = con.establishSednaConnection();	
+//		    xqc = Catalog.get().openConnection();
+//			xqe = xqc.createExpression();			
+//			
+//			long startTime = System.nanoTime();
+//
+//			xqr = xqe.executeQuery(xquery);	
+//			long delay = ((System.nanoTime() - startTime)/1000000); // milissegundos			
+//			
+//			if (!xqr.next()){			
+//				return null;
+//			}			
+//			
+//			do {				
+//				retorno = retorno + xqr.getItemAsString(null);				
+//				
+//			} while (xqr.next());
 			
-			long startTime = System.nanoTime();
-
-			xqr = xqe.executeQuery(xquery);	
-			long delay = ((System.nanoTime() - startTime)/1000000); // milissegundos			
 			
-			if (!xqr.next()){			
-				return null;
-			}			
 			
-			do {				
-				retorno = retorno + xqr.getItemAsString(null);				
+			Query q = Query.getUniqueInstance(true);
+			SubQuery sbq = SubQuery.getUniqueInstance(true);
+			
+			// Se nao tiver retornado resultado algum, o nico elemento retornado ser o constructorElement. Nao gerar XML, pois no h resultados.				
+			if ( retorno.trim().lastIndexOf("<") != 0 ) {					
+		
+				sbq.setConstructorElement(getConstructorElement(retorno)); // Usado para a composicao do resultado final.
 				
-			} while (xqr.next());
-			
-			
-			
-			try {		
-				Query q = Query.getUniqueInstance(true);
-				SubQuery sbq = SubQuery.getUniqueInstance(true);
+				String intervalBeginning = getIntervalBeginning(xquery);
 				
-				// Se nao tiver retornado resultado algum, o nico elemento retornado ser o constructorElement. Nao gerar XML, pois no h resultados.				
-				if ( retorno.trim().lastIndexOf("<") != 0 ) {					
-			
-					sbq.setConstructorElement(getConstructorElement(retorno)); // Usado para a composicao do resultado final.
-					
-					String intervalBeginning = getIntervalBeginning(xquery);
-					
-					if ( sbq.getElementAfterConstructor().equals("") ) {
-						sbq.setElementAfterConstructor(getElementAfterConstructorElement(retorno, sbq.getConstructorElement()));
-					}
-					
-					if (sbq.isUpdateOrderClause()) {
-						getElementsAroundOrderByElement(xquery, sbq.getElementAfterConstructor());
-					}
-					
-					if (!q.isOrderByClause()) { // se a consulta original nao possui order by adicione o elemento idOrdem
-						storeResultInXMLDocument(SubQuery.addOrderId(retorno, intervalBeginning), intervalBeginning);
-					}
-					else { // se a consulta original possui order by apenas adicione o titulo do xml.
-						retorno = getTitle() + "<partialResult>\r\n" + retorno + "\r\n</partialResult>";
-						storeResultInXMLDocument(retorno, intervalBeginning);
-					}
+				if ( sbq.getElementAfterConstructor().equals("") ) {
+					sbq.setElementAfterConstructor(getElementAfterConstructorElement(retorno, sbq.getConstructorElement()));
 				}
 				
-				xqc.close();
+				if (sbq.isUpdateOrderClause()) {
+					getElementsAroundOrderByElement(xquery, sbq.getElementAfterConstructor());
+				}
 				
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}		
-						
+				if (!q.isOrderByClause()) { // se a consulta original nao possui order by adicione o elemento idOrdem
+					retorno = SubQuery.addOrderId(retorno, intervalBeginning);
+				    //storeResultInXMLDocument(SubQuery.addOrderId(retorno, intervalBeginning), intervalBeginning);
+				}
+				else { // se a consulta original possui order by apenas adicione o titulo do xml.
+					retorno = getTitle() + "<partialResult>\r\n" + retorno + "\r\n</partialResult>";
+					//storeResultInXMLDocument(retorno, intervalBeginning);
+				}
+			}
+			
+			//xqc.close();
+				
+//			} catch (IOException e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}		
+			LOG.info("ExecuteSubQuery - retorno: " + retorno);			
 			return retorno;
 			
 		} catch (XQException e) {
@@ -171,19 +179,19 @@ public class SubQuery {
 			e.printStackTrace();
 			return null;
 		}
-		finally {
-			try {
-				if (xqr!=null) xqr.close();			
-				if (xqe!=null) xqe.close();			
-				if (xqc!=null) xqc.close();				
-			} catch (Exception e2) {
-				
-				System.out.println("Subquery.executeSubQuery class: Erro ao fechar conexo.");
-				e2.printStackTrace();
-				return null;
-			}
-		}		
-		
+//		finally {
+//			try {
+//				if (xqr!=null) xqr.close();			
+//				if (xqe!=null) xqe.close();			
+//				if (xqc!=null) xqc.close();				
+//			} catch (Exception e2) {
+//				
+//				System.out.println("Subquery.executeSubQuery class: Erro ao fechar conexo.");
+//				e2.printStackTrace();
+//				return null;
+//			}
+//		}		
+//		
 	}
 	
 	public static String addOrderId(String originalPartialResult, String intervalBeginning){
@@ -221,35 +229,20 @@ public class SubQuery {
 
 	}
 	
-	public static void deleteCollection() throws IOException{
+	public static void deleteCollection() throws IOException {
 		
-//		SednaConnection con = null;
-//		SednaStatement st = null;	
-//		CatalogManager cm = CatalogManager.getUniqueInstance();
-//		// Verifica se a coleo j existe.
-//		ExecucaoConsulta exec = new ExecucaoConsulta();
-//		
-//		if (exec.executeQuery("for $col in doc('$collections')/collections/collection/@name=\"tmpResultadosParciais\" return $col").equals("true")){				
-//			// Apagar a coleo caso exista.
-//			
-//			try {
-//				con = DatabaseManager.getConnection(cm.getserverName(),cm.getdatabaseName(),cm.getuserName(),cm.getuserPassword());
-//				con.begin();
-//				st = con.createStatement();
-//				st.execute("DROP COLLECTION 'tmpResultadosParciais'");
-//				
-//				// Criar a coleo
-//				st.execute("CREATE COLLECTION \"tmpResultadosParciais\"");
-//				con.commit();
-//				con.close();
-//				
-//			} catch (DriverException e) {
-//				System.out.println("Subquery.deleteCollection: Erro ao remover colecao.");
-//				e.printStackTrace();
-//			}		
-//										
-//		}	
-
+	    try {
+	        Database db = Catalog.get().getDatabase();
+	        
+	        db.deleteCollection("tmpResultadosParciais");
+            
+	        // this is wrong, but it is expected that this method recreates the
+	        // collection
+	        db.createCollection("tmpResultadosParciais");
+	        
+        } catch (XQException e) {
+            throw new IOException(e);
+        }
 	}
 	
 	public static void storeResultInXMLDocument(String partialResult, String intervalBeginning) throws IOException{

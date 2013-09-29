@@ -2,11 +2,7 @@ package uff.dew.vphadoop.db;
 import java.io.IOException;
 import java.io.InputStream;
 
-import javax.xml.xquery.XQConnection;
-import javax.xml.xquery.XQDataSource;
 import javax.xml.xquery.XQException;
-import javax.xml.xquery.XQPreparedExpression;
-import javax.xml.xquery.XQResultSequence;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -25,7 +21,7 @@ public class Catalog {
 	
 	private static Catalog _instance = null;
 	
-	XQDataSource dataSource;
+	Database database;
 	
 	private Catalog() {
 	}
@@ -36,7 +32,6 @@ public class Catalog {
 		}
 		return _instance;
 	}
-	
 
     public void setConfiguration(Configuration conf) throws IOException {
         
@@ -45,7 +40,7 @@ public class Catalog {
         FileSystem dfs = FileSystem.get(conf);
         InputStream is = dfs.open(new Path(configFile));
         
-        dataSource = DataSourceFactory.createDataSource(is);
+        database = DatabaseFactory.createDatabase(is);
     }
 	
 	public int getCardinality(String xpath) throws IOException {
@@ -53,21 +48,15 @@ public class Catalog {
 	    LOG.info("xpath: " + xpath);
 		try {
             String query = cardinalityQuery.replace("#", xpath);
-            XQConnection conn = dataSource.getConnection();
-            XQPreparedExpression xpe = conn.prepareExpression(query);
-            XQResultSequence rseq = xpe.executeQuery();
-            rseq.next();
-            return rseq.getInt();
+            String result = database.executeQueryAsString(query);
+            
+            return Integer.parseInt(result);
         } catch (XQException e) {
             throw new IOException(e);
         }
 	}
-
-    public XQDataSource getDataSource() {
-        return dataSource;
-    }
-    
-    public XQConnection openConnection() throws XQException {
-        return dataSource.getConnection();
-    }
+	
+	public Database getDatabase() {
+	    return database;
+	}
 }

@@ -1,11 +1,19 @@
 package uff.dew.vphadoop.connector;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
 
 import javax.xml.xquery.XQConnection;
 import javax.xml.xquery.XQDataSource;
 import javax.xml.xquery.XQException;
 import javax.xml.xquery.XQPreparedExpression;
 import javax.xml.xquery.XQResultSequence;
+
+import mediadorxml.fragmentacaoVirtualSimples.Query;
+import mediadorxml.fragmentacaoVirtualSimples.SubQuery;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -19,8 +27,8 @@ import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
 import uff.dew.vphadoop.VPConst;
-import uff.dew.vphadoop.db.DataSourceFactory;
-import uff.dew.vphadoop.xquery.XPathExpression;
+import uff.dew.vphadoop.db.Catalog;
+import uff.dew.vphadoop.db.DatabaseFactory;
 
 
 
@@ -31,18 +39,17 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
     // flags to indicate current position
     private static final int NOT_STARTED = -1;
     private static final int DONE = -2;
-
-	//private int first = 0;
-	//private int total = 0;
-	//private int selectionLevel = 0;
 	
 	private int current = NOT_STARTED;
 	
-	private XQDataSource xqs = null;
+	private Catalog catalog = null;
 	private XQResultSequence rs = null;
 	
 	private String xquery = null;
-	private StringBuilder result = null;
+	private String result = null;
+
+    private SubQuery sbq;
+	
 	
 	public VPRecordReader() {
 	    LOG.trace("CONSTRUCTOR() " + this);
@@ -50,12 +57,6 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	
 	@Override
 	public void close() throws IOException {
-	    LOG.trace("close() " + this);
-	    try {
-			rs.close();
-		} catch (XQException e) {
-			throw new IOException(e);
-		}
 	}
 
 	@Override
@@ -75,7 +76,7 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	        //XMLStreamReader reader = rs.getItemAsStream();
 			//return new Text(reader.getText());
 	        //return new Text(rs.getItemAsString(null));
-	        return new Text(result.toString());
+	        return new Text(result);
 //		} catch (XQException e) {
 //			throw new IOException(e);
 //		}
@@ -97,7 +98,7 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 		
 		VPInputSplit vpSplit = (VPInputSplit) split;
 		
-		xquery = vpSplit.getFragment();
+		xquery = vpSplit.getFragmentQuery();
 		
 //		first = vpSplit.getStartPosition();
 //		total = vpSplit.getLengh();
@@ -106,45 +107,137 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 		LOG.debug("xquery: " + xquery);
         //LOG.trace("initialize() from " + first + " to " + (first + total - 1));
 		
+		parallelProcessingInit();
+		
 		readData();
 	}
 
 	private void readConfiguration(Configuration conf) throws IOException {
 
+	    // the subquery for this fragment
 	    xquery = conf.get(VPConst.DB_XQUERY);
 	    
-		String configFile = conf.get(VPConst.DB_CONFIGFILE_PATH);
-		FileSystem dfs = FileSystem.get(conf);
-		
-		xqs = DataSourceFactory.createDataSource(dfs.open(new Path(configFile)));
+	    // configure catalog for this task tracker
+		Catalog.get().setConfiguration(conf);
 	}
 
 	private void readData() throws IOException {
 	    
-	    //XPathExpression xpe = new XPathExpression(xquery);
-	    //String selection = "position()=(" + first + " to " + (first+total-1) + ")";
-	    //String finalExpr = xpe.getPathWithSelection(selection, selectionLevel);
-	    String finalExpr = xquery.split("#")[1];
-	    LOG.debug("readData() xquery: " + finalExpr);
+	    LOG.debug("readData() xquery: " + xquery);
 	    try {
-	        long startTimestamp = System.currentTimeMillis();
-			XQConnection conn = xqs.getConnection();
-			XQPreparedExpression xqpe = conn.prepareExpression(finalExpr);        
-			rs = xqpe.executeQuery();
-			LOG.debug("readData() query executed in " + 
-			        (System.currentTimeMillis()-startTimestamp) +" ms.");
-			
-			result = new StringBuilder();
-			while (rs.next()) {
-                result.append(rs.getItemAsString(null));
-            }
-			
-			rs.close();
-			conn.close();
+	        result = parallelProcessingRun();
 		} catch (XQException e) {
 			throw new IOException(e);
 		}
 	}
+	
+	private void parallelProcessingInit() throws IOException {
+	    sbq = SubQuery.getUniqueInstance(true);
+	    
+	}
+	
+	/**
+	 * From SVP code (adapted) 
+	 */
+	private String parallelProcessingRun() throws XQException {
+	    
+	    LOG.info("VPRecordReader - consulta: " + xquery);
+	    
+	    String result = "";
+	            
+	    String query = "";
+        
+        try {
+            Query q = Query.getUniqueInstance(true);
+            long startTime; 
+            long delay;
+            long tmp;  
+            StringReader sr = new StringReader(xquery);
+            BufferedReader buff = new BufferedReader(sr);
+            String line;
+            
+            while((line = buff.readLine()) != null){    
+                if (!line.toUpperCase().contains("<ORDERBY>") && !line.toUpperCase().contains("<ORDERBYTYPE>") 
+                        && !line.toUpperCase().contains("<AGRFUNC>")) {                         
+                    query = query + " " + line;
+                }
+                else {
+                    // obter as cláusulas do orderby e de funçoes de agregaçao
+                    if (line.toUpperCase().contains("<ORDERBY>")){
+                        String orderByClause = line.substring(line.indexOf("<ORDERBY>")+"<ORDERBY>".length(), line.indexOf("</ORDERBY>"));
+                        q.setOrderBy(orderByClause);
+                    }
+                    
+                    if (line.toUpperCase().contains("<ORDERBYTYPE>")){
+                        String orderByType= line.substring(line.indexOf("<ORDERBYTYPE>")+"<ORDERBYTYPE>".length(), line.indexOf("</ORDERBYTYPE>"));                         
+                        q.setOrderByType(orderByType);
+                    }
+                    
+                    if (line.toUpperCase().contains("<AGRFUNC>")){ // soma 1 para excluir a tralha contida apos a tag <AGRFUNC>
+                        
+                        String aggregateFunctions = line.substring(line.indexOf("<AGRFUNC>")+"<AGRFUNC>".length(), line.indexOf("</AGRFUNC>"));
+                                                    
+                        if (!aggregateFunctions.equals("") && !aggregateFunctions.equals("{}")) {
+                            String[] functions = aggregateFunctions.split(","); // separa todas as funções de agregação utilizadas no return statement.
+                        
+                            if (functions!=null) {
+                                
+                                for (String keyMap: functions) {
+                        
+                                    String[] hashParts = keyMap.split("=");
+                                    
+                                    if (hashParts!=null) {
+                        
+                                        q.setAggregateFunc(hashParts[0], hashParts[1]); // o par CHAVE, VALOR
+                                    }
+                                }
+                                
+                            }
+                        }                       
+                    }                       
+                }
+            }
+                            
+            startTime = System.nanoTime(); // inicializa o contador de tempo.   
+            
+            result = SubQuery.executeSubQuery(query);
+            
+//            // tempo de leitura de arquivo + execução da consulta
+//            delay = ((System.nanoTime() - startTime)/1000000);
+//            
+//            // tempo das outras sub-consultas já executadas.
+//            tmp = this.sbq.getStartTime();                  
+//            
+//            // soma com o tempo gasto para execução da sub-consulta atual.
+//            tmp = tmp + delay; 
+//            
+//            // atualiza variável
+//            q.settotalExecutionTime(q.gettotalExecutionTime() + delay);
+//            this.sbq.setStartTime(tmp);
+//            
+//            try {
+//                Thread.sleep(2000);  // tempo especificado em milissegundos                    
+//            } catch(InterruptedException e) {}
+            
+                
+//        } catch (FileNotFoundException e) {
+//            // TODO Auto-generated catch block
+//            e.printStackTrace();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } 
+//        finally {
+//            try {
+//                if (xqr!=null) xqr.close();
+//                if (xqe!=null) xqe.close();
+//                if (xqc!=null) xqc.close();
+//            } catch (Exception e2) {
+//                // TODO: handle exception
+//            }
+//        }
+        return result;
+    }
 
 	@Override
 	public boolean nextKeyValue() throws IOException, InterruptedException {

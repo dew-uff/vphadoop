@@ -61,7 +61,7 @@ public class VPInputSplit extends InputSplit implements Writable {
         query = in.readUTF();
     }
 
-    public String getFragment() {
+    public String getFragmentQuery() {
         return query;
     }
 }

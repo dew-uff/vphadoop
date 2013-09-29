@@ -7,20 +7,28 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.io.StringReader;
 import java.net.URI;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JProgressBar;
+import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.border.EtchedBorder;
 
+import mediadorxml.javaccparser.XQueryParser;
+
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -28,7 +36,6 @@ import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
@@ -60,6 +67,12 @@ public class VPGui {
     
     private JButton queryButton;
     
+    private JProgressBar mapProgress;
+    private JProgressBar reduceProgress;
+
+    private Job job;
+    private Path outputPath;
+    
     public VPGui() {
         
         frame = new JFrame("VPHadoop");
@@ -79,6 +92,7 @@ public class VPGui {
         addQueryArea(pane);
         addButtonArea(pane);
         addOutputArea(pane);
+        addStatusArea(pane);
     }
 
     private void addDBConfigArea(Container pane) {
@@ -190,7 +204,8 @@ public class VPGui {
         pane.add(label, cl);
         
         queryArea = new JTextArea(FIXED_QUERY);
-        queryArea.setBorder(BorderFactory.createEtchedBorder(EtchedBorder.RAISED));
+        JScrollPane scrollQuery = new JScrollPane(queryArea);
+        scrollQuery.setBorder(BorderFactory.createEtchedBorder(EtchedBorder.RAISED));
         GridBagConstraints c = new GridBagConstraints();
         c.fill = GridBagConstraints.BOTH;
         c.weightx = 0.5; 
@@ -199,7 +214,7 @@ public class VPGui {
         c.gridy = 3;
         c.gridwidth = 8;
         c.insets = new Insets(10, 10, 10, 10);
-        pane.add(queryArea,c);
+        pane.add(scrollQuery,c);
     }
 
     private void addButtonArea(Container pane) {
@@ -230,8 +245,8 @@ public class VPGui {
         pane.add(label, cl);        
         
         outputArea = new JTextArea();
-        outputArea.setBorder(BorderFactory.createEtchedBorder(EtchedBorder.RAISED));
-        
+        JScrollPane scrollOutput = new JScrollPane(outputArea);
+        scrollOutput.setBorder(BorderFactory.createEtchedBorder(EtchedBorder.RAISED));
         GridBagConstraints c = new GridBagConstraints();
         c.fill = GridBagConstraints.BOTH;
         c.weightx = 0.5; 
@@ -240,7 +255,53 @@ public class VPGui {
         c.gridy = 6;
         c.gridwidth = 8;
         c.insets = new Insets(10, 10, 10, 10);
-        pane.add(outputArea, c);
+        pane.add(scrollOutput, c);
+    }
+    
+    private void addStatusArea(Container pane) {
+       
+        // map
+        GridBagConstraints c = new GridBagConstraints();
+        c.fill = GridBagConstraints.NONE;
+        c.weightx = 0.0; 
+        c.weighty = 0.0;
+        c.gridx = 0;
+        c.gridy = 7;
+        c.gridwidth = 2;
+        c.insets = new Insets(10, 10, 10, 0);
+        c.anchor = GridBagConstraints.WEST;
+        pane.add(new JLabel("Map progress"), c);
+        
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.weightx = 0.5;
+        c.weighty = 0.0;
+        c.gridx = 2;
+        c.gridy = 7;
+        c.gridwidth = 2;
+        c.insets = new Insets(10, 0, 10, 0);
+        mapProgress = new JProgressBar(0,100);
+        pane.add(mapProgress,c);
+
+        // reduce
+        c.fill = GridBagConstraints.NONE;
+        c.weightx = 0.0; 
+        c.weighty = 0.0;
+        c.gridx = 4;
+        c.gridy = 7;
+        c.gridwidth = 2;
+        c.insets = new Insets(10, 10, 10, 0);
+        c.anchor = GridBagConstraints.WEST;
+        pane.add(new JLabel("Reduce progress"), c);
+        
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.weightx = 0.5;
+        c.weighty = 0.0;
+        c.gridx = 6;
+        c.gridy = 7;
+        c.gridwidth = 2;
+        c.insets = new Insets(10, 0, 10, 10);
+        reduceProgress = new JProgressBar(0,100);
+        pane.add(reduceProgress,c);
     }
     
     private void addListeners() {
@@ -248,14 +309,34 @@ public class VPGui {
             
             @Override
             public void actionPerformed(ActionEvent ae) {
-                javax.swing.SwingUtilities.invokeLater(new Runnable() {
-                    @Override
-                    public void run() {
-                        startHadoopJob();                    }
-                });
+                
+                if (checkXquery()) {
+                
+                    javax.swing.SwingUtilities.invokeLater(new Runnable() {
+                        @Override
+                        public void run() {
+                            startHadoopJob();                    
+                        }
+                        
+                    });
+                }
 
             }
         });
+    }
+
+    private boolean checkXquery() {
+        
+        boolean result = false;
+        XQueryParser parser = new XQueryParser(new StringReader(queryArea.getText().trim()));
+        try {
+            parser.Start();
+            result = true;
+        } 
+        catch (Exception pe) {
+            outputArea.setText(pe.getMessage());
+        }
+        return result;
     }
     
     private void startHadoopJob() {
@@ -268,19 +349,66 @@ public class VPGui {
         // TODO read this from interface
         conf.set(VPConst.DB_XQUERY, queryArea.getText().trim());
         conf.set(VPConst.DB_CONFIGFILE_PATH, "configuration.xml");
-        
+
         try {
             writeDbConfiguration(conf);
             
-            Job job = setupJob(conf);
+            job = setupJob(conf);
             
-            job.waitForCompletion(true);
+            job.submit();
+            
+            queryButton.setEnabled(false);
+            mapProgress.setValue(0);
+            reduceProgress.setValue(0);
+            
+            startTrackingStatus();
+         
         } catch (Exception e) {
             //TODO handle this exception nicely
             e.printStackTrace();
         }
     }
     
+    private void startTrackingStatus() {
+        Runnable r = new Runnable() {
+            
+            @Override
+            public void run() {
+                try {
+                    while (!job.isComplete()) {
+                        mapProgress.setValue(Math.round(job.mapProgress()*100));
+                        reduceProgress.setValue(Math.round(job.reduceProgress()*100));
+                        Thread.sleep(2000);
+                    }
+                    queryButton.setEnabled(true);
+                    
+                    showOutput();
+                }
+                catch (Exception e) {
+                    //TODO
+                }
+                
+            }
+        };
+        
+        new Thread(r).start();
+    }
+    
+    private void showOutput() {
+        try {
+            FileSystem fs = FileSystem.get(URI.create("vphadoop"), job.getConfiguration());
+            Path resultFile = new Path(outputPath, "part-r-00000");
+            FSDataInputStream in = fs.open(resultFile);
+            BufferedReader br = new BufferedReader(new InputStreamReader(in));
+            String line;
+            while ((line = br.readLine())!= null) {
+                outputArea.append(line + "\r\n");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     private void writeDbConfiguration(Configuration conf) throws IOException {
         FileSystem fs = FileSystem.get(URI.create("vphadoop"), conf);
         FSDataOutputStream out = fs.create(new Path("configuration.xml"),true);
@@ -319,7 +447,7 @@ public class VPGui {
 
         job.setOutputFormatClass(TextOutputFormat.class);
         
-        Path outputPath = new Path("output");
+        outputPath = new Path("output");
         FileSystem dfs = FileSystem.get(conf);
         if (dfs.exists(outputPath)){
             dfs.delete(outputPath, true);

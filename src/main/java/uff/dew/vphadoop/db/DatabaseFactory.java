@@ -5,13 +5,10 @@ import java.io.InputStream;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.xquery.XQDataSource;
-
-import net.xqj.basex.BaseXXQDataSource;
 
 import org.w3c.dom.Document;
 
-public class DataSourceFactory {
+public class DatabaseFactory {
     
     private static final String CONFIG_FILE_HOST_ELEMENT = "host";
     private static final String CONFIG_FILE_PORT_ELEMENT = "port";
@@ -21,7 +18,7 @@ public class DataSourceFactory {
     
     private static final String TYPE_BASEX = "BASEX";
     
-    public static XQDataSource createDataSource(InputStream fileStream) throws IOException {
+    public static Database createDatabase(InputStream fileStream) throws IOException {
         
         try
         {
@@ -48,13 +45,9 @@ public class DataSourceFactory {
             pass = doc.getElementsByTagName(CONFIG_FILE_PASSWORD_ELEMENT).item(0)
                     .getTextContent();
             
-            BaseXXQDataSource ds = new BaseXXQDataSource();
-            ds.setServerName(host);
-            ds.setPort(Integer.parseInt(port));
-            ds.setUser(user);
-            ds.setPassword(pass);
+            Database database = new BaseXDatabase(host, Integer.parseInt(port), user, pass);
             
-            return ds;
+            return database;
         }
         catch(Exception e) {
             throw new IOException(e);

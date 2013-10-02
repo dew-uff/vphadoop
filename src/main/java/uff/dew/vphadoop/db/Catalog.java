@@ -36,7 +36,7 @@ public class Catalog {
     public void setConfiguration(Configuration conf) throws IOException {
         
         String configFile = conf.get(VPConst.DB_CONFIGFILE_PATH);
-        LOG.info("setConfiguration() " + configFile);
+        LOG.debug("setConfiguration() " + configFile);
         FileSystem dfs = FileSystem.get(conf);
         InputStream is = dfs.open(new Path(configFile));
         

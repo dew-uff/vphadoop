@@ -1,5 +1,6 @@
 package uff.dew.vphadoop.db;
 
+import java.io.File;
 import java.io.IOException;
 
 import javax.xml.xquery.XQConnection;
@@ -7,60 +8,67 @@ import javax.xml.xquery.XQException;
 import javax.xml.xquery.XQExpression;
 
 import net.xqj.basex.BaseXXQDataSource;
+import net.xqj.sedna.SednaXQDataSource;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-public class BaseXDatabase extends BaseDatabase {
-	
-	private static Log LOG = LogFactory.getLog(BaseXDatabase.class);
+public class SednaDatabase extends BaseDatabase {
+    
+    private static final Log LOG = LogFactory.getLog(SednaDatabase.class);
 
-    public BaseXDatabase(String host, int port, String username, String password) throws IOException {
-   	
-    	BaseXXQDataSource basexDataSource = new BaseXXQDataSource();
+    public SednaDatabase(String host, int port, String username, String password, String database) throws IOException {
+        SednaXQDataSource sednaDataSource = new SednaXQDataSource();
 
-        basexDataSource.setServerName(host);
-        basexDataSource.setPort(port);
-        basexDataSource.setUser(username);
-        basexDataSource.setPassword(password);
+        sednaDataSource.setServerName(host);
+        sednaDataSource.setPort(port);
+        sednaDataSource.setUser(username);
+        sednaDataSource.setPassword(password);
+        sednaDataSource.setDatabaseName(database);
         
-        dataSource = basexDataSource;
+        dataSource = sednaDataSource;
     }
     
     @Override
     public void deleteCollection(String collectionName) throws XQException {
-        executeCommand("DROP DB " + collectionName);
+        if (existsCollection(collectionName)) {
+            executeCommand("DROP COLLECTION '" + collectionName + "'");
+        }
     }
 
     @Override
     public void createCollection(String collectionName) throws XQException {
-        executeCommand("CREATE DB " + collectionName);
+        executeCommand("CREATE COLLECTION '" + collectionName + "'");
     }
     
     @Override
     public void createCollectionWithContent(String collectionName, String dirPath) 
             throws XQException {
-        executeCommand("CREATE DB " + collectionName + " " + dirPath);
-        
+        createCollection(collectionName);
+        File dir = new File(dirPath);
+        File[] files = dir.listFiles();
+        for(File file: files) {
+            loadFileInCollection(collectionName, file.getAbsolutePath());
+        }
     }
     
     private void executeCommand(String command) throws XQException {
-    	LOG.debug("Command: " + command);
+        LOG.debug("command: " + command);
         XQConnection conn = getConnection();
         XQExpression exp = conn.createExpression();
         exp.executeCommand(command);
         exp.close();
         conn.close();
     }
-
+    
     @Override
     public int getCardinality(String xpath, String document, String collection)
             throws XQException {
-        String query = "let $elm := doc('" + document + "')/" + xpath + " return count($elm)";
+        String query = "let $elm := doc('" + document + ((collection != null && collection.length() > 0)?("', '"+ collection):"") +"')" + xpath + " return count($elm)";
         
         return Integer.parseInt(executeQueryAsString(query));
     }
-    
+
     @Override
     public String getHost() {
         BaseXXQDataSource ds = (BaseXXQDataSource) dataSource;
@@ -88,9 +96,11 @@ public class BaseXDatabase extends BaseDatabase {
     @Override
     public void loadFileInCollection(String collectionName, String filePath)
             throws XQException {
-        // TODO implement it
-        throw new XQException("Not implemented! Have a nice day.");
-        
+        File file = new File(filePath);
+        executeCommand("LOAD '" + filePath + "' '" + file.getName() + "' '" + collectionName + "'"); 
     }
-
+    
+    private boolean existsCollection(String collectionName) throws XQException {
+        return getCardinality("/collections/collection[@name='"+collectionName+"']", "$collections", null) > 0?true:false;
+    }
 }

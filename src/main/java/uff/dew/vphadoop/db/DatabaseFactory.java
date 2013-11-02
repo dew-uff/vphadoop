@@ -10,47 +10,72 @@ import org.w3c.dom.Document;
 
 public class DatabaseFactory {
     
-    private static final String CONFIG_FILE_HOST_ELEMENT = "host";
-    private static final String CONFIG_FILE_PORT_ELEMENT = "port";
-    private static final String CONFIG_FILE_USERNAME_ELEMENT = "username";
-    private static final String CONFIG_FILE_PASSWORD_ELEMENT = "password";
-    private static final String CONFIG_FILE_TYPE_ELEMENT = "type";
+    public static final String CONFIG_FILE_HOST_ELEMENT = "serverName";
+    public static final String CONFIG_FILE_PORT_ELEMENT = "portNumber";
+    public static final String CONFIG_FILE_USERNAME_ELEMENT = "userName";
+    public static final String CONFIG_FILE_PASSWORD_ELEMENT = "userPassword";
+    public static final String CONFIG_FILE_TYPE_ELEMENT = "type";
+    public static final String CONFIG_FILE_DATABASE_ELEMENT = "databaseName";
     
-    private static final String TYPE_BASEX = "BASEX";
+    public static final String TYPE_BASEX = "BASEX";
+    public static final String TYPE_SEDNA = "SEDNA";
     
     public static Database createDatabase(InputStream fileStream) throws IOException {
         
         try
         {
-            String host, port, user, pass;
-            
             DocumentBuilderFactory b = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = b.newDocumentBuilder();
             Document doc = builder.parse(fileStream);
             
-            if (!doc.getElementsByTagName(CONFIG_FILE_TYPE_ELEMENT).item(0)
+            Database database;
+            
+            if (doc.getElementsByTagName(CONFIG_FILE_TYPE_ELEMENT).item(0)
                     .getTextContent().equals(TYPE_BASEX)) {
-                throw new Exception("Only BaseX supported");
+                database = getBaseXDatabase(doc);
+            } else {
+                database = getSednaDatabase(doc);
             }
-            
-            host = doc.getElementsByTagName(CONFIG_FILE_HOST_ELEMENT).item(0)
-                    .getTextContent();
-            
-            port = doc.getElementsByTagName(CONFIG_FILE_PORT_ELEMENT).item(0)
-                    .getTextContent();
-            
-            user = doc.getElementsByTagName(CONFIG_FILE_USERNAME_ELEMENT).item(0)
-                    .getTextContent();
-            
-            pass = doc.getElementsByTagName(CONFIG_FILE_PASSWORD_ELEMENT).item(0)
-                    .getTextContent();
-            
-            Database database = new BaseXDatabase(host, Integer.parseInt(port), user, pass);
             
             return database;
         }
         catch(Exception e) {
             throw new IOException(e);
         }
+    }
+
+    private static Database getBaseXDatabase(Document doc) throws IOException {
+        String host = doc.getElementsByTagName(CONFIG_FILE_HOST_ELEMENT).item(0)
+                .getTextContent();
+        
+        String port = doc.getElementsByTagName(CONFIG_FILE_PORT_ELEMENT).item(0)
+                .getTextContent();
+        
+        String user = doc.getElementsByTagName(CONFIG_FILE_USERNAME_ELEMENT).item(0)
+                .getTextContent();
+        
+        String pass = doc.getElementsByTagName(CONFIG_FILE_PASSWORD_ELEMENT).item(0)
+                .getTextContent();
+        
+        return new BaseXDatabase(host, Integer.parseInt(port), user, pass);
+    }
+    
+    private static Database getSednaDatabase(Document doc) throws IOException {
+        String host = doc.getElementsByTagName(CONFIG_FILE_HOST_ELEMENT).item(0)
+                .getTextContent();
+        
+        String port = doc.getElementsByTagName(CONFIG_FILE_PORT_ELEMENT).item(0)
+                .getTextContent();
+        
+        String user = doc.getElementsByTagName(CONFIG_FILE_USERNAME_ELEMENT).item(0)
+                .getTextContent();
+        
+        String pass = doc.getElementsByTagName(CONFIG_FILE_PASSWORD_ELEMENT).item(0)
+                .getTextContent();
+        
+        String database = doc.getElementsByTagName(CONFIG_FILE_DATABASE_ELEMENT).item(0)
+                .getTextContent();
+        
+        return new SednaDatabase(host, Integer.parseInt(port), user, pass, database);
     }
 }

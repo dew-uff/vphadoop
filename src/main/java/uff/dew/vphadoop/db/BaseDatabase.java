@@ -6,11 +6,17 @@ import javax.xml.xquery.XQException;
 import javax.xml.xquery.XQPreparedExpression;
 import javax.xml.xquery.XQResultSequence;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 public abstract class BaseDatabase implements Database {
+	
+	private static Log LOG = LogFactory.getLog(BaseDatabase.class);
     
     protected XQDataSource dataSource;
     
     public XQResultSequence executeQuery(String query) throws XQException {
+    	LOG.debug("Query: " + query);
         XQConnection conn = dataSource.getConnection();
         XQPreparedExpression exp = conn.prepareExpression(query);
         return exp.executeQuery();
@@ -26,14 +32,10 @@ public abstract class BaseDatabase implements Database {
     
     public static String stringalizeResult(XQResultSequence rs) throws XQException {
         
-        StringBuilder result = new StringBuilder();
-        
         if (rs != null) {
-            while (rs.next()) {               
-                result.append(rs.getItemAsString(null));
-            }            
+            return rs.getSequenceAsString(null);           
         }
         
-        return result.toString();
+        return null;
     }
 }

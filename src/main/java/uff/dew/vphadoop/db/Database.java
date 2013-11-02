@@ -13,9 +13,11 @@ public interface Database {
     
     public void deleteCollection(String collectionName) throws XQException;
     
-    public void loadFilesInCollection(String collectionName, String dirPath) throws XQException;
+    public void loadFileInCollection(String collectionName, String filePath) throws XQException;
     
     public void createCollectionWithContent(String collectionName, String dirPath) throws XQException;
+    
+    public int getCardinality(String xpath, String document, String collection) throws XQException;
     
     public String getHost();
     
@@ -24,6 +26,7 @@ public interface Database {
     public String getUsername();
     
     public String getPassword();
+
 
 }
 

@@ -33,7 +33,7 @@ public class MyReducer extends Reducer<IntWritable, Text, Text, NullWritable> {
     private static final String TEMP_COLLECTION_NAME = "tmpResultadosParciais";
     
     // HACK
-    private String retorno;
+    private String retorno = "";
     
     public MyReducer() {
 
@@ -48,26 +48,39 @@ public class MyReducer extends Reducer<IntWritable, Text, Text, NullWritable> {
         Configuration conf = context.getConfiguration();
         Catalog.get().setConfiguration(conf);
         Database db = Catalog.get().getDatabase();
-        loadIntoDatabase(db,values);
+        loadPartialsIntoDatabase(db, values);
         
         // the constructFinalQuery (below) was originally executed using the same context
-        // previously used to retrieve a partial result. That means that some singletons
-        // objects were populated when compiling the final result. Now we don't have that 
-        // information, so we need to restore it.
+        // previously used to retrieve a partial result (at the coordinator node). 
+        // That means that some singletons objects were populated when compiling the final 
+        // result. Now we don't have that information, so we need to restore it.
         repopulateQueryAndSubQueryObjects(conf);      
 
-        // construct the query to get the result from the temp collection
-        String finalQuery = constructFinalQuery();
-        LOG.info("Final Query: " + finalQuery);
-        
-        // execute the final query
         String result = "";
-        try {
-            result = db.executeQueryAsString(finalQuery);
+        
+        // if retorno contains just the constructor, means that all the partial results were 
+        // empty, so we don't have to run the query.
+        if (retorno.lastIndexOf('<') != 0) {
+        
+            // construct the query to get the result from the temp collection
+            String finalQuery = constructFinalQuery();
+            LOG.debug("Final Query: " + finalQuery);
+            
+            // execute the final query
+    
+            try {
+                result = db.executeQueryAsString(finalQuery);
+            }
+            catch (XQException e) {
+                e.printStackTrace();
+                throw new IOException(e);
+            }
+        } else {
+            // if retorno contains only the the element constructor then that's the result
+            result = retorno;
         }
-        catch (XQException e) {
-            throw new IOException(e);
-        }
+            
+        
         
         // output the result
         context.write(new Text(result), NullWritable.get());
@@ -128,12 +141,13 @@ public class MyReducer extends Reducer<IntWritable, Text, Text, NullWritable> {
             }
         }
         
-        if (retorno.indexOf("<idOrdem>") != -1 )
-            retorno = retorno.substring(retorno.indexOf("<partialResult>")+"<partialResult>".length(), retorno.indexOf("<idOrdem>"));
-        else
-            retorno = retorno.substring(retorno.indexOf("<partialResult>")+"<partialResult>".length(), retorno.indexOf("</partialResult>"));
-        
-        if ( retorno.trim().lastIndexOf("<") != 0 ) {                   
+        if (retorno.lastIndexOf('<') != 0) {
+            // means that at least one partial result got anything more than just the constructor
+            
+            if (retorno.indexOf("<idOrdem>") != -1 )
+                retorno = retorno.substring(retorno.indexOf("<partialResult>")+"<partialResult>".length(), retorno.indexOf("<idOrdem>"));
+            else
+                retorno = retorno.substring(retorno.indexOf("<partialResult>")+"<partialResult>".length(), retorno.indexOf("</partialResult>"));
             
             sbq.setConstructorElement(SubQuery.getConstructorElement(retorno)); // Usado para a composicao do resultado final.
             
@@ -146,44 +160,52 @@ public class MyReducer extends Reducer<IntWritable, Text, Text, NullWritable> {
             if (sbq.isUpdateOrderClause()) {
                 SubQuery.getElementsAroundOrderByElement(query, sbq.getElementAfterConstructor());
             }
-            
-            if (!q.isOrderByClause()) { // se a consulta original nao possui order by adicione o elemento idOrdem
-                retorno = SubQuery.addOrderId(retorno, "");
-                //storeResultInXMLDocument(SubQuery.addOrderId(retorno, intervalBeginning), intervalBeginning);
-            }
-            else { // se a consulta original possui order by apenas adicione o titulo do xml.
-                retorno = SubQuery.getTitle() + "<partialResult>\r\n" + retorno + "\r\n</partialResult>";
-                //storeResultInXMLDocument(retorno, intervalBeginning);
-            }
+        } else {
+            sbq.setConstructorElement(SubQuery.getConstructorElement(retorno)); // setting just the constructor element to
         }
     }
 
-    private void loadIntoDatabase(Database db, Iterable<Text> values) throws IOException {
+    private void loadPartialsIntoDatabase(Database db, Iterable<Text> values) throws IOException {
         try {
 
+            db.deleteCollection(TEMP_COLLECTION_NAME);
+            
             // save all partial results as files in a temp directory
             File tempDir = createTempDirectory();
-            LOG.debug("temp dir: " + tempDir.getAbsolutePath());
             
             for (Text partial : values) {
-                File xml = File.createTempFile("partial", ".xml", tempDir);
-                LOG.debug("creating temp file: " + xml.getAbsolutePath());
-                FileWriter fw = new FileWriter(xml);
-                retorno = partial.toString();
-                fw.write(retorno);
-                fw.close();
+                String partialString = partial.toString();
+                // TODO hack
+                hackSetRetornoVariable(partialString);
+                if (partialString.lastIndexOf('<') != 0) {
+                    File xml = File.createTempFile("partial", ".xml", tempDir);
+                    LOG.debug("creating temp file: " + xml.getAbsolutePath());
+                    FileWriter fw = new FileWriter(xml);                    
+                    fw.write(partialString);
+                    fw.close();
+                }
             }
             
-            db.deleteCollection(TEMP_COLLECTION_NAME);
-            db.createCollectionWithContent(TEMP_COLLECTION_NAME, tempDir.getAbsolutePath());
+            // only create the collection if we had partial results
+            if (tempDir.list().length > 0) {
+                db.createCollectionWithContent(TEMP_COLLECTION_NAME, tempDir.getAbsolutePath());
+            }
             
             deleteTempDirectory(tempDir);
             
         } catch (XQException e) {
+            e.printStackTrace();
             throw new IOException(e);
         }
     }
     
+    private void hackSetRetornoVariable(String partialString) {
+        if (retorno.length() == 0 || 
+                (retorno.lastIndexOf('<') == 0 && partialString.lastIndexOf('<') != 0)) {
+            retorno = partialString;
+        }
+    }
+
     /**
      * From FinalResult.getFinalResult (adapted)
      * 
@@ -414,7 +436,7 @@ public class MyReducer extends Reducer<IntWritable, Text, Text, NullWritable> {
         } else { // se a consulta original nao possui order by, acrescentar na
                     // consulta final a ordenacao de acordo com a ordem dos
                     // elementos nos documentos pesquisados.
-            orderByClause = "$ret/idOrdem";
+            orderByClause = "number($ret/idOrdem)";
 
             finalResultXquery = sbq.getConstructorElement()
                     + " {  "

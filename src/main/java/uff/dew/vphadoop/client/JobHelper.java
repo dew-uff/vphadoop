@@ -1,6 +1,7 @@
 package uff.dew.vphadoop.client;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -76,12 +77,12 @@ public class JobHelper {
         }
     }
 
-    public static void copyLocalJarsToHdfs(String localJarsDir, String hdfsJarsDir, Configuration configuration) throws IOException {
+    public static void copyLocalJarsToHdfs(String localJarsDir, String hdfsJarsDir, FileFilter filter, Configuration configuration) throws IOException {
         checkRequiredArgument(localJarsDir, "Local JARs dir is null");
         checkRequiredArgument(hdfsJarsDir, "HDFS JARs dir is null");
         checkRequiredArgument(configuration, "Configuration is null");
 
-        Set<File> jarFiles = collectJarFilesFromLocalDir(localJarsDir);
+        Set<File> jarFiles = collectJarFilesFromLocalDir(localJarsDir, filter);
 
         if (jarFiles.isEmpty()) {
             logger.info("No JAR files found for copying to HDFS under local dir: " + localJarsDir);
@@ -89,10 +90,17 @@ public class JobHelper {
             logger.info("Copying "+jarFiles.size()+" JAR files from local dir ("+localJarsDir+") to HDFS dir ("+hdfsJarsDir+" at "+resolveHdfsAddress(configuration)+")");
             FileSystem hdfsFileSystem = FileSystem.get(configuration);
 
+            Path hdfsJarPath = new Path(hdfsJarsDir);
+            if (hdfsFileSystem.exists(hdfsJarPath)) {
+                hdfsFileSystem.delete(hdfsJarPath, true);
+            }
+            
+            hdfsFileSystem.mkdirs(hdfsJarPath);
+            
             for (File jarFile : jarFiles) {
                 Path localJarPath = new Path(jarFile.toURI());
-                Path hdfsJarPath = new Path(hdfsJarsDir, jarFile.getName());
-                hdfsFileSystem.copyFromLocalFile(false, true, localJarPath, hdfsJarPath);
+                Path hdfsJarFilePath = new Path(hdfsJarsDir, jarFile.getName());
+                hdfsFileSystem.copyFromLocalFile(false, true, localJarPath, hdfsJarFilePath);
             }
         }
     }
@@ -103,7 +111,7 @@ public class JobHelper {
         }
     }
 
-    private static Set<File> collectJarFilesFromLocalDir(String localJarsDirPath) {
+    private static Set<File> collectJarFilesFromLocalDir(String localJarsDirPath, FileFilter filter) {
         File directoryFile = new File(localJarsDirPath);
         if (null == directoryFile) {
             throw new IllegalArgumentException("No directory found at local path: " + localJarsDirPath);
@@ -113,7 +121,7 @@ public class JobHelper {
         }
 
         Set<File> jarFiles = new HashSet<File>();
-        for (File libFile : directoryFile.listFiles()) {
+        for (File libFile : directoryFile.listFiles(filter)) {
             if (libFile.exists() && !libFile.isDirectory() && libFile.getName().endsWith(".jar")) {
                 jarFiles.add(libFile);
             }

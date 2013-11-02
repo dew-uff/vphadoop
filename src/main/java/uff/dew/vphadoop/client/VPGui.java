@@ -4,17 +4,22 @@ import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.StringReader;
 
 import javax.swing.BorderFactory;
+import javax.swing.ButtonGroup;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
 import javax.swing.JProgressBar;
+import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
@@ -24,19 +29,19 @@ import mediadorxml.javaccparser.XQueryParser;
 import uff.dew.vphadoop.client.runner.HadoopJobRunner;
 import uff.dew.vphadoop.client.runner.JobListener;
 import uff.dew.vphadoop.client.runner.JobRunner;
+import uff.dew.vphadoop.db.DatabaseFactory;
 
 public class VPGui implements JobListener {
     
     private static final String FIXED_QUERY = "" + 
-            " <results> \r\n" +
-            " { \r\n"+
-            "   for $p in doc('standard')/site/people/person \r\n"+
-            " return \r\n"+
-            "  <person> \r\n"+
-            "    {$p/name} \r\n"+
-            "  </person> \r\n"+
-            " } \r\n"+ 
-            " </results>"; 
+            "<results> { "
+            + "for $c in doc('dblp')/dblp/inproceedings "
+            + "where $c/year >1984 and $c/year <=2007 "
+            + "return "
+            + "<inproceeding> "
+            + "{$c/title} "
+            + "</inproceeding> } "
+            + "</results>"; 
     
     private JFrame frame;
     
@@ -49,6 +54,8 @@ public class VPGui implements JobListener {
     private JTextArea outputArea;
     
     private JButton queryButton;
+    private JCheckBox outputCheckbox;
+    private ButtonGroup dbTypeChooser;
     
     private JProgressBar mapProgress;
     private JProgressBar reduceProgress;
@@ -59,7 +66,7 @@ public class VPGui implements JobListener {
         
         frame = new JFrame("VPHadoop");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(640,480);
+        frame.setSize(800,600);
         
         addContent(frame.getContentPane());
         
@@ -170,6 +177,59 @@ public class VPGui implements JobListener {
         passwordField = new JTextField("admin");
         passwordField.setHorizontalAlignment(JTextField.CENTER);
         pane.add(passwordField,c);
+        
+        // db type
+        c.fill = GridBagConstraints.NONE;
+        c.weightx = 0.0; 
+        c.weighty = 0.0;
+        c.gridx = 3;
+        c.gridy = 2;
+        c.insets = new Insets(10, 10, 0, 0);
+        c.anchor = GridBagConstraints.WEST;
+        pane.add(new JLabel("DB type"), c);
+        
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.weightx = 0.5;
+        c.weighty = 0.0;
+        c.gridx = 4;
+        c.gridy = 2;
+        c.gridwidth = 2;
+        c.insets = new Insets(10, 0, 0, 10);
+        dbTypeChooser = new ButtonGroup();
+        final JRadioButton basexButton = new JRadioButton("BaseX");
+        basexButton.setActionCommand(DatabaseFactory.TYPE_BASEX);
+        basexButton.setSelected(true);
+        basexButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (basexButton.isSelected()) {
+                    usernameField.setText("admin");
+                    passwordField.setText("admin");
+                    portField.setText("1984");
+                }
+            }
+        });
+
+        final JRadioButton sednaButton = new JRadioButton("Sedna");
+        sednaButton.setActionCommand(DatabaseFactory.TYPE_SEDNA);
+        sednaButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (sednaButton.isSelected()) {
+                    usernameField.setText("SYSTEM");
+                    passwordField.setText("MANAGER");
+                    portField.setText("5050");
+                }
+            }
+        });
+
+        dbTypeChooser.add(basexButton);
+        dbTypeChooser.add(sednaButton);
+        
+        JPanel radioPanel = new JPanel(new GridLayout(1,2));
+        radioPanel.add(basexButton);
+        radioPanel.add(sednaButton);
+        pane.add(radioPanel,c);
     }
 
     private void addQueryArea(Container pane) {
@@ -179,7 +239,7 @@ public class VPGui implements JobListener {
         cl.weightx = 0.5; 
         cl.weighty = 0.0;
         cl.gridx = 0;
-        cl.gridy = 2;
+        cl.gridy = 3;
         cl.gridwidth = 8;
         cl.insets = new Insets(10, 10, 0, 0);
         cl.anchor = GridBagConstraints.WEST;
@@ -193,7 +253,7 @@ public class VPGui implements JobListener {
         c.weightx = 0.5; 
         c.weighty = 0.5;
         c.gridx = 0;
-        c.gridy = 3;
+        c.gridy = 4;
         c.gridwidth = 8;
         c.insets = new Insets(10, 10, 10, 10);
         pane.add(scrollQuery,c);
@@ -207,24 +267,26 @@ public class VPGui implements JobListener {
         GridBagConstraints c = new GridBagConstraints();
         c.weighty = 0;
         c.gridx = 0;
-        c.gridy = 4;
+        c.gridy = 5;
         c.gridwidth = 8;
         c.anchor = GridBagConstraints.CENTER;
         pane.add(queryButton, c);
     }
     
     private void addOutputArea(Container pane) {
-        JLabel label = new JLabel("Output");
+        outputCheckbox = new JCheckBox("Output",true);
+        
+        //JLabel label = new JLabel("Output");
         GridBagConstraints cl = new GridBagConstraints();
         cl.fill = GridBagConstraints.NONE;
         cl.weightx = 0.5; 
         cl.weighty = 0.0;
         cl.gridx = 0;
-        cl.gridy = 5;
+        cl.gridy = 6;
         cl.gridwidth = 8;
         cl.insets = new Insets(10, 10, 0, 0);
         cl.anchor = GridBagConstraints.WEST;
-        pane.add(label, cl);        
+        pane.add(outputCheckbox, cl);        
         
         outputArea = new JTextArea();
         JScrollPane scrollOutput = new JScrollPane(outputArea);
@@ -234,7 +296,7 @@ public class VPGui implements JobListener {
         c.weightx = 0.5; 
         c.weighty = 0.5;
         c.gridx = 0;
-        c.gridy = 6;
+        c.gridy = 7;
         c.gridwidth = 8;
         c.insets = new Insets(10, 10, 10, 10);
         pane.add(scrollOutput, c);
@@ -248,7 +310,7 @@ public class VPGui implements JobListener {
         c.weightx = 0.0; 
         c.weighty = 0.0;
         c.gridx = 0;
-        c.gridy = 7;
+        c.gridy = 8;
         c.gridwidth = 2;
         c.insets = new Insets(10, 10, 0, 0);
         c.anchor = GridBagConstraints.WEST;
@@ -258,7 +320,7 @@ public class VPGui implements JobListener {
         c.weightx = 0.5;
         c.weighty = 0.0;
         c.gridx = 2;
-        c.gridy = 7;
+        c.gridy = 8;
         c.gridwidth = 6;
         c.insets = new Insets(10, 0, 0, 10);
         mapProgress = new JProgressBar(0,100);
@@ -269,7 +331,7 @@ public class VPGui implements JobListener {
         c.weightx = 0.0; 
         c.weighty = 0.0;
         c.gridx = 0;
-        c.gridy = 8;
+        c.gridy = 9;
         c.gridwidth = 2;
         c.insets = new Insets(10, 10, 10, 0);
         c.anchor = GridBagConstraints.WEST;
@@ -279,7 +341,7 @@ public class VPGui implements JobListener {
         c.weightx = 0.5;
         c.weighty = 0.0;
         c.gridx = 2;
-        c.gridy = 8;
+        c.gridy = 9;
         c.gridwidth = 6;
         c.insets = new Insets(10, 0, 10, 10);
         reduceProgress = new JProgressBar(0,100);
@@ -325,7 +387,9 @@ public class VPGui implements JobListener {
             HadoopJobRunner hadoopJob = new HadoopJobRunner(queryArea.getText().trim());
             
             hadoopJob.setHadoopConfiguration("hadoop-dev", 9000, "hadoop-dev", 9001);
-            hadoopJob.setDbConfiguration(hostField.getText().trim(), Integer.parseInt(portField.getText().trim()), 
+            String dbType = dbTypeChooser.getSelection().getActionCommand();
+            
+            hadoopJob.setDbConfiguration(dbType,hostField.getText().trim(), Integer.parseInt(portField.getText().trim()), 
                     usernameField.getText().trim(), passwordField.getText().trim());
             
             hadoopJob.addListener(this);
@@ -344,6 +408,7 @@ public class VPGui implements JobListener {
         } catch (Exception e) {
             JOptionPane.showMessageDialog(frame, "Well.. something is not right!\n"+e.getMessage(), 
                     "Error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
         }
     }
     
@@ -387,12 +452,13 @@ public class VPGui implements JobListener {
     @Override
     public void completed(boolean successful) {
         if (successful) {
-            showOutput();    
+            if (outputCheckbox.isSelected()) {
+                showOutput();
+            }
         }
         else {
             outputArea.setText("Erro!!!");
         }
-        
-        
+        queryButton.setEnabled(true);
     }
 }

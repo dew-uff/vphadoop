@@ -2,6 +2,8 @@ package uff.dew.vphadoop.client.runner;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -25,6 +27,7 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.client.JobHelper;
 import uff.dew.vphadoop.connector.VPInputFormat;
+import uff.dew.vphadoop.db.DatabaseFactory;
 import uff.dew.vphadoop.job.MyReducer;
 
 public class HadoopJobRunner extends BaseJobRunner {
@@ -43,10 +46,13 @@ public class HadoopJobRunner extends BaseJobRunner {
     private int dbPort;
     private String dbUser;
     private String dbPassword;
+    private String dbType;
     
     private Path outputPath;
     
     private Job job;
+
+
 
     public HadoopJobRunner(String query) {
         super(query);
@@ -60,8 +66,9 @@ public class HadoopJobRunner extends BaseJobRunner {
         this.namenodePort = namenodePort;        
     }
     
-    public void setDbConfiguration(String host, int port, String user, 
+    public void setDbConfiguration(String type, String host, int port, String user, 
             String password) {
+        this.dbType = type;
         this.dbHost = host;
         this.dbPort = port;
         this.dbUser = user;
@@ -97,11 +104,14 @@ public class HadoopJobRunner extends BaseJobRunner {
         bw.write("<?xml version=\"1.0\"?>\n");
         bw.write("<vphadoop>\n");
         bw.write("<database>\n");
-        bw.write("<type>"+ "BASEX" +"</type>\n");
-        bw.write("<host>"+ dbHost+"</host>\n");
-        bw.write("<port>"+ dbPort+"</port>\n");
-        bw.write("<username>"+ dbUser+"</username>\n");
-        bw.write("<password>"+ dbPassword+"</password>\n");
+        bw.write("<"+DatabaseFactory.CONFIG_FILE_TYPE_ELEMENT+">"+ dbType +"</"+DatabaseFactory.CONFIG_FILE_TYPE_ELEMENT+">\n");
+        bw.write("<"+DatabaseFactory.CONFIG_FILE_HOST_ELEMENT+">"+ dbHost+"</"+DatabaseFactory.CONFIG_FILE_HOST_ELEMENT+">\n");
+        bw.write("<"+DatabaseFactory.CONFIG_FILE_PORT_ELEMENT+">"+ dbPort+"</"+DatabaseFactory.CONFIG_FILE_PORT_ELEMENT+">\n");
+        bw.write("<"+DatabaseFactory.CONFIG_FILE_USERNAME_ELEMENT+">"+ dbUser+"</"+DatabaseFactory.CONFIG_FILE_USERNAME_ELEMENT+">\n");
+        bw.write("<"+DatabaseFactory.CONFIG_FILE_PASSWORD_ELEMENT+">"+ dbPassword+"</"+DatabaseFactory.CONFIG_FILE_PASSWORD_ELEMENT+">\n");
+        if (dbType.equals(DatabaseFactory.TYPE_SEDNA)) {
+            bw.write("<"+DatabaseFactory.CONFIG_FILE_DATABASE_ELEMENT+">"+ "dblp" +"</"+DatabaseFactory.CONFIG_FILE_DATABASE_ELEMENT+">\n");
+        }
         bw.write("</database>\n");
         bw.write("</vphadoop>\n");
         bw.close();
@@ -112,7 +122,19 @@ public class HadoopJobRunner extends BaseJobRunner {
         
         String localJarsDir = "./dist";
         String hdfsJarsDir = "/user/hduser/libs";
-        JobHelper.copyLocalJarsToHdfs(localJarsDir, hdfsJarsDir, conf);
+        FileFilter fileFilter = new FileFilter() {
+            @Override
+            public boolean accept(File file) {
+                if (dbType.equals(DatabaseFactory.TYPE_SEDNA) && file.getName().indexOf("basex") != -1) {
+                    return false;
+                } else if (dbType.equals(DatabaseFactory.TYPE_BASEX) && file.getName().indexOf("sedna") != -1){
+                    return false;
+                }
+                return true;
+            }
+        };
+        
+        JobHelper.copyLocalJarsToHdfs(localJarsDir, hdfsJarsDir, fileFilter, conf);
         JobHelper.addHdfsJarsToDistributedCache(hdfsJarsDir, conf);
         Job job = new Job(conf,"vphadoop");
         

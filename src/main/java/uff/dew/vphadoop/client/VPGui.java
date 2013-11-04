@@ -33,15 +33,18 @@ import uff.dew.vphadoop.db.DatabaseFactory;
 
 public class VPGui implements JobListener {
     
-    private static final String FIXED_QUERY = "" + 
-            "<results> { "
-            + "for $c in doc('dblp')/dblp/inproceedings "
-            + "where $c/year >1984 and $c/year <=2007 "
-            + "return "
-            + "<inproceeding> "
-            + "{$c/title} "
-            + "</inproceeding> } "
-            + "</results>"; 
+//    private static final String FIXED_QUERY = "" + 
+//            "<results> { "
+//            + "for $c in doc('dblp')/dblp/inproceedings "
+//            + "where $c/year >1984 and $c/year <=2007 "
+//            + "return "
+//            + "<inproceeding> "
+//            + "{$c/title} "
+//            + "</inproceeding> } "
+//            + "</results>"; 
+    
+    // c11
+    private static final String FIXED_QUERY = "<results> {   for $it in doc('xmlDataBaseXmark')/site/regions/africa/item   for $co in doc('xmlDataBaseXmark')/site/closed_auctions/closed_auction   where $co/itemref/@item = $it/@id   and $it/payment = \"Cash\"    return     <itens>      {$co/price}      {$co/date}      {$co/quantity}      {$co/type}      {$it/payment}      {$it/location}      {$it/from}      {$it/to}    </itens> }</results>";
     
     private JFrame frame;
     

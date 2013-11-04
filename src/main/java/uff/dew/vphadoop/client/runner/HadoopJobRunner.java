@@ -16,11 +16,9 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
@@ -28,6 +26,7 @@ import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.client.JobHelper;
 import uff.dew.vphadoop.connector.VPInputFormat;
 import uff.dew.vphadoop.db.DatabaseFactory;
+import uff.dew.vphadoop.job.MyMapper;
 import uff.dew.vphadoop.job.MyReducer;
 
 public class HadoopJobRunner extends BaseJobRunner {
@@ -140,8 +139,8 @@ public class HadoopJobRunner extends BaseJobRunner {
         
         job.setInputFormatClass(VPInputFormat.class);
         
-        job.setMapperClass(Mapper.class);
-        job.setMapOutputKeyClass(IntWritable.class);
+        job.setMapperClass(MyMapper.class);
+        job.setMapOutputKeyClass(NullWritable.class);
         job.setMapOutputValueClass(Text.class);
         
         job.setReducerClass(MyReducer.class);

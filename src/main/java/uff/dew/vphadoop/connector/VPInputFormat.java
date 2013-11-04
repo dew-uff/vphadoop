@@ -64,7 +64,8 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         
         for (int i = 0; i < queries.length; i++) {
             LOG.debug("Query["+i+"]= " + queries[i]);
-            InputSplit is = new VPInputSplit(queries[i]);
+            int initialPos = Integer.parseInt(SubQuery.getIntervalBeginning(queries[i]));
+            InputSplit is = new VPInputSplit(initialPos, queries[i]);
             splits.add(is);
         }
         

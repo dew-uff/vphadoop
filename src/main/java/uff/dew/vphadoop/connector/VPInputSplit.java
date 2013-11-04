@@ -11,7 +11,7 @@ public class VPInputSplit extends InputSplit implements Writable {
     
     private String query;
 	
-//	private int startPos = -1;
+	private int startPos = -1;
 //	private int length = -1;
 //	private int level = -1;
 
@@ -21,14 +21,14 @@ public class VPInputSplit extends InputSplit implements Writable {
 	    //TODO verify this
 	}
 	
-	public VPInputSplit(String query) {
-//		this.startPos = start;
+	public VPInputSplit(int start, String query) {
+		this.startPos = start;
 //		this.length = length;
 //		this.level = level;
 	    this.query = query;
 	}
 	
-	@Override
+    @Override
 	public long getLength() throws IOException {
 		// TODO
 		return 1;
@@ -39,9 +39,9 @@ public class VPInputSplit extends InputSplit implements Writable {
 		return nodes;
 	}
 
-//	public int getStartPosition() {
-//		return startPos;
-//	}
+	public int getStartPosition() {
+		return startPos;
+	}
 //	
 //	public int getLengh() {
 //		return length;
@@ -54,11 +54,13 @@ public class VPInputSplit extends InputSplit implements Writable {
     @Override
     public void write(DataOutput out) throws IOException {
         out.writeUTF(query);
+        out.writeInt(startPos);
     }
 
     @Override
     public void readFields(DataInput in) throws IOException {
         query = in.readUTF();
+        startPos = in.readInt();
     }
 
     public String getFragmentQuery() {

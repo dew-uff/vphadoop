@@ -2,7 +2,9 @@ package uff.dew.vphadoop.job;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileWriter;
+import java.io.FileFilter;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -18,7 +20,6 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -26,7 +27,7 @@ import org.apache.hadoop.mapreduce.Reducer;
 import uff.dew.vphadoop.db.Catalog;
 import uff.dew.vphadoop.db.Database;
 
-public class MyReducer extends Reducer<IntWritable, Text, Text, NullWritable> {
+public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
 
     private static final Log LOG = LogFactory.getLog(MyReducer.class);
     
@@ -40,7 +41,7 @@ public class MyReducer extends Reducer<IntWritable, Text, Text, NullWritable> {
     }
 
     @Override
-    protected void reduce(IntWritable key, Iterable<Text> values,
+    protected void reduce(NullWritable key, Iterable<Text> values,
             Context context)
             throws IOException, InterruptedException {
         
@@ -48,7 +49,7 @@ public class MyReducer extends Reducer<IntWritable, Text, Text, NullWritable> {
         Configuration conf = context.getConfiguration();
         Catalog.get().setConfiguration(conf);
         Database db = Catalog.get().getDatabase();
-        loadPartialsIntoDatabase(db, values);
+        loadPartialsIntoDatabase(db, values, context);
         
         // the constructFinalQuery (below) was originally executed using the same context
         // previously used to retrieve a partial result (at the coordinator node). 
@@ -165,29 +166,19 @@ public class MyReducer extends Reducer<IntWritable, Text, Text, NullWritable> {
         }
     }
 
-    private void loadPartialsIntoDatabase(Database db, Iterable<Text> values) throws IOException {
+    private void loadPartialsIntoDatabase(Database db, Iterable<Text> values, Context context) throws IOException {
         try {
-
             db.deleteCollection(TEMP_COLLECTION_NAME);
-            
-            // save all partial results as files in a temp directory
             File tempDir = createTempDirectory();
-            
-            for (Text partial : values) {
-                String partialString = partial.toString();
-                // TODO hack
-                hackSetRetornoVariable(partialString);
-                if (partialString.lastIndexOf('<') != 0) {
-                    File xml = File.createTempFile("partial", ".xml", tempDir);
-                    LOG.debug("creating temp file: " + xml.getAbsolutePath());
-                    FileWriter fw = new FileWriter(xml);                    
-                    fw.write(partialString);
-                    fw.close();
-                }
+            FileSystem fs = FileSystem.get(context.getConfiguration());
+            int count = 0;
+            for(Text filename : values) {
+                String localFilename = tempDir.getAbsolutePath()+"/partial_"+ count++ +".xml";
+                fs.copyToLocalFile(new Path(filename.toString()), new Path(localFilename));
             }
-            
-            // only create the collection if we had partial results
+
             if (tempDir.list().length > 0) {
+                hackSetRetornoVariable(tempDir);
                 db.createCollectionWithContent(TEMP_COLLECTION_NAME, tempDir.getAbsolutePath());
             }
             
@@ -199,11 +190,56 @@ public class MyReducer extends Reducer<IntWritable, Text, Text, NullWritable> {
         }
     }
     
-    private void hackSetRetornoVariable(String partialString) {
-        if (retorno.length() == 0 || 
-                (retorno.lastIndexOf('<') == 0 && partialString.lastIndexOf('<') != 0)) {
-            retorno = partialString;
+    private void hackSetRetornoVariable(File dir) {
+        File[] partials = dir.listFiles(new FileFilter() {
+            
+            @Override
+            public boolean accept(File file) {
+                if (file.getName().endsWith(".xml")){
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        });
+        
+        for (File f : partials) {
+            try {
+                String temp = readFileContent(f.getAbsolutePath());
+                if (retorno.length() == 0 || 
+                        (retorno.lastIndexOf('<') == 0 && temp.lastIndexOf('<') != 0)) {
+                    retorno = temp;
+                }
+                if (retorno.lastIndexOf('<') != 0) {
+                    break;
+                }
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
+    }
+
+    private static String readFileContent(String filename) throws FileNotFoundException, IOException {
+        
+        BufferedReader br = new BufferedReader(new FileReader(filename));
+        String everything = null;
+        try {
+            StringBuilder sb = new StringBuilder();
+            String line = br.readLine();
+
+            while (line != null) {
+                sb.append(line);
+                sb.append('\n');
+                line = br.readLine();
+            }
+            everything = sb.toString().trim();
+        } finally {
+            br.close();
+        }
+        
+        return everything;
     }
 
     /**

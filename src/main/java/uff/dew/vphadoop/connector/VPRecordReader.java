@@ -29,11 +29,10 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
     private static final int DONE = -2;
 	
 	private int current = NOT_STARTED;
+	private int startPos = 0;
 	
 	private String xquery = null;
 	private String result = null;
-
-    private SubQuery sbq;	
 	
 	public VPRecordReader() {
 	    LOG.trace("CONSTRUCTOR() " + this);
@@ -50,7 +49,7 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 //	        return null;
 //	    }
 //		return new IntWritable(current);
-	    return new IntWritable(1);
+	    return new IntWritable(startPos);
 	}
 
 	@Override
@@ -83,8 +82,7 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 		VPInputSplit vpSplit = (VPInputSplit) split;
 		
 		xquery = vpSplit.getFragmentQuery();
-		
-//		first = vpSplit.getStartPosition();
+		startPos = vpSplit.getStartPosition();
 //		total = vpSplit.getLengh();
 //		selectionLevel = vpSplit.getSelectionLevel();
 		
@@ -113,8 +111,7 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	}
 	
 	private void parallelProcessingInit() throws IOException {
-	    sbq = SubQuery.getUniqueInstance(true);
-	    
+	    SubQuery.getUniqueInstance(true);
 	}
 	
 	/**

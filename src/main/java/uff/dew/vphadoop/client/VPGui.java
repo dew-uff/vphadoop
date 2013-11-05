@@ -33,18 +33,22 @@ import uff.dew.vphadoop.db.DatabaseFactory;
 
 public class VPGui implements JobListener {
     
-//    private static final String FIXED_QUERY = "" + 
-//            "<results> { "
-//            + "for $c in doc('dblp')/dblp/inproceedings "
-//            + "where $c/year >1984 and $c/year <=2007 "
-//            + "return "
-//            + "<inproceeding> "
-//            + "{$c/title} "
-//            + "</inproceeding> } "
-//            + "</results>"; 
+    // c1
+    private static final String FIXED_QUERY = "" + 
+            "<results> { "
+            + "for $c in doc('dblp')/dblp/inproceedings "
+            + "where $c/year >1984 and $c/year <=2007 "
+            + "return "
+            + "<inproceeding> "
+            + "{$c/title} "
+            + "</inproceeding> } "
+            + "</results>"; 
     
     // c11
-    private static final String FIXED_QUERY = "<results> {   for $it in doc('xmlDataBaseXmark')/site/regions/africa/item   for $co in doc('xmlDataBaseXmark')/site/closed_auctions/closed_auction   where $co/itemref/@item = $it/@id   and $it/payment = \"Cash\"    return     <itens>      {$co/price}      {$co/date}      {$co/quantity}      {$co/type}      {$it/payment}      {$it/location}      {$it/from}      {$it/to}    </itens> }</results>";
+    //private static final String FIXED_QUERY = "<results> {   for $it in doc('xmlDataBaseXmark')/site/regions/africa/item   for $co in doc('xmlDataBaseXmark')/site/closed_auctions/closed_auction   where $co/itemref/@item = $it/@id   and $it/payment = \"Cash\"    return     <itens>      {$co/price}      {$co/date}      {$co/quantity}      {$co/type}      {$it/payment}      {$it/location}      {$it/from}      {$it/to}    </itens> }</results>";
+    
+    // c12
+    //private static final String FIXED_QUERY = "<results> {   for $op in doc('xmlDataBaseXmark')/site/open_auctions/open_auction   let $bd := $op/bidder where count($op/bidder) > 5   return      <open_auctions_with_more_than_5_bidders>        <auction>           {$op}        </auction>        <qty_bidder>           {count($op/bidder)}        </qty_bidder>     </open_auctions_with_more_than_5_bidders>}</results>";
     
     private JFrame frame;
     

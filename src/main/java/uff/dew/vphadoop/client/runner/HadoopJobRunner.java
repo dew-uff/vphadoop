@@ -206,7 +206,7 @@ public class HadoopJobRunner extends BaseJobRunner {
             
             FileSystem fs = FileSystem.get(URI.create("vphadoop"), job.getConfiguration());
             //TODO change this
-            Path resultFile = new Path(outputPath, "part-r-00000");
+            Path resultFile = new Path("result.xml");
             FSDataInputStream in = fs.open(resultFile);
             BufferedReader br = new BufferedReader(new InputStreamReader(in));
 

@@ -8,9 +8,11 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.util.Set;
 
 import javax.xml.xquery.XQException;
+import javax.xml.xquery.XQResultSequence;
 
 import mediadorxml.fragmentacaoVirtualSimples.Query;
 import mediadorxml.fragmentacaoVirtualSimples.SubQuery;
@@ -57,8 +59,12 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         // result. Now we don't have that information, so we need to restore it.
         repopulateQueryAndSubQueryObjects(conf);      
 
-        String result = "";
+        SubQuery sbq = SubQuery.getUniqueInstance(true);
         
+        Path path = new Path("result.xml");
+        FileSystem fs = FileSystem.get(conf);
+        OutputStream resultWriter = fs.create(path);
+
         // if retorno contains just the constructor, means that all the partial results were 
         // empty, so we don't have to run the query.
         if (retorno.lastIndexOf('<') != 0) {
@@ -68,23 +74,32 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
             LOG.debug("Final Query: " + finalQuery);
             
             // execute the final query
-    
+
+            String header = sbq.getConstructorElement() + "\r\n";
+            resultWriter.write(header.getBytes());
+            
             try {
-                result = db.executeQueryAsString(finalQuery);
+                XQResultSequence rs = db.executeQuery(finalQuery);
+                while (rs.next()) {
+                    String item = rs.getItemAsString(null);
+                    resultWriter.write(item.getBytes());
+                }
             }
             catch (XQException e) {
                 e.printStackTrace();
                 throw new IOException(e);
             }
+            
+            String footer = sbq.getConstructorElement().replace("<", "</");
+            resultWriter.write(footer.getBytes());
+            
         } else {
             // if retorno contains only the the element constructor then that's the result
-            result = retorno;
+            resultWriter.write(retorno.getBytes());
         }
-            
         
-        
-        // output the result
-        context.write(new Text(result), NullWritable.get());
+        resultWriter.flush();
+        resultWriter.close();
     }
     
     // HACK
@@ -263,8 +278,8 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         if (q.getAggregateFunctions() != null
                 && q.getAggregateFunctions().size() > 0) { 
 
-            finalResultXquery = sbq.getConstructorElement()
-                    + "{ \r\n"
+            finalResultXquery = 
+                    " \r\n"
                     + " let $c:= collection('"+TEMP_COLLECTION_NAME+"')/partialResult/"
                     + sbq.getConstructorElement().replaceAll("[</>]", "")
                     + "\r\n"
@@ -425,8 +440,8 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
             } // fim for
 
             finalResultXquery = finalResultXquery + "\r\n\t"
-                    + sbq.getElementAfterConstructor().replace("<", "</") + " } "
-                    + sbq.getConstructorElement().replace("<", "</");
+                    + sbq.getElementAfterConstructor().replace("<", "</")
+                    ;
 
             // System.out.println("FinalResult.getFinalResult(): consulta final eh:"+finalResultXquery);
 
@@ -460,13 +475,12 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
                 }
             }
 
-            finalResultXquery = sbq.getConstructorElement()
-                    + " {  "
-                    + " for $ret in collection('"+TEMP_COLLECTION_NAME+"')/partialResult/"
+            finalResultXquery = 
+                    " for $ret in collection('"+TEMP_COLLECTION_NAME+"')/partialResult/"
                     + sbq.getConstructorElement().replaceAll("[</>]", "") + "/"
                     + sbq.getElementAfterConstructor().replaceAll("[</>]", "")
-                    + " order by " + orderByClause + " return $ret" + " } "
-                    + sbq.getConstructorElement().replace("<", "</");
+                    + " order by " + orderByClause + " return $ret" 
+                    ;
 
             // System.out.println("finalresult.java:"+ finalResultXquery);
         } else { // se a consulta original nao possui order by, acrescentar na
@@ -474,15 +488,15 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
                     // elementos nos documentos pesquisados.
             orderByClause = "number($ret/idOrdem)";
 
-            finalResultXquery = sbq.getConstructorElement()
-                    + " {  "
-                    + " for $ret in collection('"+TEMP_COLLECTION_NAME+"')/partialResult"
+            finalResultXquery = 
+                    
+                    " for $ret in collection('"+TEMP_COLLECTION_NAME+"')/partialResult"
                     + " let $c:= $ret/"
                     + sbq.getConstructorElement().replaceAll("[</>]", "")
                     + "/element()" // where $ret/element()/name()!='idOrdem'"
                     + " order by " + orderByClause + " ascending"
-                    + " return $c" + " } "
-                    + sbq.getConstructorElement().replace("<", "</");
+                    + " return $c" 
+                    ;
 
             // System.out.println("finalresult.java:"+ finalResultXquery);
         }

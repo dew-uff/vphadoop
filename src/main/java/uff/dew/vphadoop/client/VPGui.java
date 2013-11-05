@@ -50,6 +50,9 @@ public class VPGui implements JobListener {
     // c12
     //private static final String FIXED_QUERY = "<results> {   for $op in doc('xmlDataBaseXmark')/site/open_auctions/open_auction   let $bd := $op/bidder where count($op/bidder) > 5   return      <open_auctions_with_more_than_5_bidders>        <auction>           {$op}        </auction>        <qty_bidder>           {count($op/bidder)}        </qty_bidder>     </open_auctions_with_more_than_5_bidders>}</results>";
     
+    // c5
+    //private static final String FIXED_QUERY = "<results> { for $it in doc('xmlDataBaseXmark')/site/regions/asia/item for $pe in doc('xmlDataBaseXmark')/site/people/person where $pe/profile/interest/@category = $it/incategory/@category return <people> {$pe} </people> } </results>";
+    
     private JFrame frame;
     
     private JTextField hostField;

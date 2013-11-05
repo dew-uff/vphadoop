@@ -54,12 +54,11 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 
 	@Override
 	public Text getCurrentValue() throws IOException, InterruptedException {
-	    LOG.debug("getCurrentValue() = "+result.toString());
 //	    try {
 	        //XMLStreamReader reader = rs.getItemAsStream();
 			//return new Text(reader.getText());
 	        //return new Text(rs.getItemAsString(null));
-	        return new Text(result);
+	        return new Text(xquery);
 //		} catch (XQException e) {
 //			throw new IOException(e);
 //		}
@@ -89,15 +88,15 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 		LOG.debug("xquery: " + xquery);
         //LOG.trace("initialize() from " + first + " to " + (first + total - 1));
 		
-		parallelProcessingInit();
+		//parallelProcessingInit();
 		
-		readData();
+		//readData();
 	}
 
 	private void readConfiguration(Configuration conf) throws IOException {
 
 	    // the subquery for this fragment
-	    xquery = conf.get(VPConst.DB_XQUERY);
+	    //xquery = conf.get(VPConst.DB_XQUERY);
 	    
 	    // configure catalog for this task tracker
 		Catalog.get().setConfiguration(conf);
@@ -177,7 +176,7 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
                         
         startTime = System.nanoTime(); // inicializa o contador de tempo.   
         
-        result = SubQuery.executeSubQuery(query);
+        //result = SubQuery.executeSubQuery(query);
             
 //            // tempo de leitura de arquivo + execução da consulta
 //            delay = ((System.nanoTime() - startTime)/1000000);

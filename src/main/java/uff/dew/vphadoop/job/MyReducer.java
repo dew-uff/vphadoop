@@ -83,6 +83,7 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
                 while (rs.next()) {
                     String item = rs.getItemAsString(null);
                     resultWriter.write(item.getBytes());
+                    resultWriter.flush();
                 }
             }
             catch (XQException e) {

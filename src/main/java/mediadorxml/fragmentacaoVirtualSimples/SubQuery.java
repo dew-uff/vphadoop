@@ -3,10 +3,12 @@ package mediadorxml.fragmentacaoVirtualSimples;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 
 import javax.xml.xquery.XQException;
+import javax.xml.xquery.XQResultSequence;
 
 import mediadorxml.catalog.CatalogManager;
 
@@ -102,97 +104,67 @@ public class SubQuery {
 	}
 	
 	/* Metodo para execucao das sub-consultas geradas na fragmentacao virtual simples */
-	public static String executeSubQuery(String xquery) throws IOException {
-		
-	    LOG.debug("ExecuteSubQuery - XQuery: " + xquery);
-//		XQResultSequence xqr = null;
-//		XQExpression xqe = null;
-//		XQConnection xqc = null;
-		String retorno = "";
-//		CatalogManager cm = CatalogManager.getUniqueInstance();
-		
-		try {
-			
-		    Database db = Catalog.get().getDatabase();
-		    
-		    retorno = db.executeQueryAsString(xquery);
-//			//ConnectionSedna con = new ConnectionSedna();
-//			//xqc = con.establishSednaConnection();	
-//		    xqc = Catalog.get().openConnection();
-//			xqe = xqc.createExpression();			
-//			
-//			long startTime = System.nanoTime();
-//
-//			xqr = xqe.executeQuery(xquery);	
-//			long delay = ((System.nanoTime() - startTime)/1000000); // milissegundos			
-//			
-//			if (!xqr.next()){			
-//				return null;
-//			}			
-//			
-//			do {				
-//				retorno = retorno + xqr.getItemAsString(null);				
-//				
-//			} while (xqr.next());
-			
-			
-			
-			Query q = Query.getUniqueInstance(true);
-			SubQuery sbq = SubQuery.getUniqueInstance(true);
-			
-			// Se nao tiver retornado resultado algum, o nico elemento retornado ser o constructorElement. Nao gerar XML, pois no h resultados.				
-			if ( retorno.trim().lastIndexOf("<") != 0 ) {					
-		
-				sbq.setConstructorElement(getConstructorElement(retorno)); // Usado para a composicao do resultado final.
-				
-				String intervalBeginning = getIntervalBeginning(xquery);
-				
-				if ( sbq.getElementAfterConstructor().equals("") ) {
-					sbq.setElementAfterConstructor(getElementAfterConstructorElement(retorno, sbq.getConstructorElement()));
-				}
-				
-				if (sbq.isUpdateOrderClause()) {
-					getElementsAroundOrderByElement(xquery, sbq.getElementAfterConstructor());
-				}
-				
-				if (!q.isOrderByClause()) { // se a consulta original nao possui order by adicione o elemento idOrdem
-					retorno = SubQuery.addOrderId(retorno, intervalBeginning);
-				    //storeResultInXMLDocument(SubQuery.addOrderId(retorno, intervalBeginning), intervalBeginning);
-				}
-				else { // se a consulta original possui order by apenas adicione o titulo do xml.
-					retorno = getTitle() + "<partialResult>\r\n" + retorno + "\r\n</partialResult>";
-					//storeResultInXMLDocument(retorno, intervalBeginning);
-				}
-			}
-			
-			//xqc.close();
-				
-//			} catch (IOException e) {
-//				// TODO Auto-generated catch block
-//				e.printStackTrace();
-//			}		
-			LOG.trace("ExecuteSubQuery - retorno: " + retorno);			
-			return retorno;
-			
-		} catch (XQException e) {
-			System.out.println("Subquery.executeSubQuery: Erro ao executar XQuery.");
-			e.printStackTrace();
-			return null;
-		}
-//		finally {
-//			try {
-//				if (xqr!=null) xqr.close();			
-//				if (xqe!=null) xqe.close();			
-//				if (xqc!=null) xqc.close();				
-//			} catch (Exception e2) {
-//				
-//				System.out.println("Subquery.executeSubQuery class: Erro ao fechar conexo.");
-//				e2.printStackTrace();
-//				return null;
-//			}
-//		}		
-//		
+	public static void executeSubQuery(String xquery, OutputStream out) throws IOException {
+	    LOG.debug("executeSubQuery() xquery: " + xquery);
+
+	    Query q = Query.getUniqueInstance(true);
+	
+	    // write XML header
+	    out.write(getTitle().getBytes());
+	    
+	    // write partial result root element
+	    out.write("<partialResult>\r\n".getBytes());
+	    
+	    String internalQuery = getInternalQuery(xquery);
+
+	    Database db = Catalog.get().getDatabase();
+	    
+	    // write partial result constructor element
+        String header = sbq.getConstructorElement() + "\r\n";
+        out.write(header.getBytes());
+        
+        // iterate over all results and write them
+        try {
+            XQResultSequence rs = db.executeQuery(internalQuery);
+            while (rs.next()) {
+                String item = rs.getItemAsString(null);
+                out.write(item.getBytes());
+            }
+        }
+        catch (XQException e) {
+            e.printStackTrace();
+            throw new IOException(e);
+        }
+        
+        // close partial result constructor element
+        String footer = sbq.getConstructorElement().replace("<", "</");
+        out.write(footer.getBytes());
+
+        if (!q.isOrderByClause()) { // se a consulta original nao possui order by adicione o elemento idOrdem
+            String partialOrderElement = "<idOrdem>" + getIntervalBeginning(xquery) + "</idOrdem>";
+            out.write(partialOrderElement.getBytes());
+        }
+
+        // write partial result root ending element
+        out.write("</partialResult>".getBytes());
 	}
+	
+    private static String getInternalQuery(String xquery) throws IOException {
+
+        int beginInternal = xquery.indexOf('{')+1;
+        int endInternal = xquery.lastIndexOf('}');
+        
+        if (beginInternal == -1 || endInternal == -1) {
+            throw new IOException("Query not well formed. Must have constructor element!");
+        }
+        
+        // internalQuery doesn't have the constructor element
+        String internalQuery = xquery.substring(beginInternal, endInternal);
+        internalQuery.trim();
+        
+        LOG.debug("internal query: " + internalQuery);
+        return internalQuery;
+    }
 	
 	public static String addOrderId(String originalPartialResult, String intervalBeginning){
 		

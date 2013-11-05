@@ -1,7 +1,12 @@
 package uff.dew.vphadoop.job;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.StringReader;
+
+import mediadorxml.fragmentacaoVirtualSimples.Query;
+import mediadorxml.fragmentacaoVirtualSimples.SubQuery;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -18,6 +23,8 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
     
     public static final String PARTIALS_DIR = "partials";
     
+    private String subquery = new String();
+    
     public MyMapper() {
 
     }
@@ -26,14 +33,75 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
     protected void map(IntWritable key, Text value,
             Context context)
             throws IOException, InterruptedException {
-        //LOG.trace("Mapping " + key + " and " + value);
+        
+        // value is the fragment file from SVP
+        String fragment = value.toString(); 
+        
+        // need to process it to extract the subquery
+        processFragment(fragment);
+        
+        // execute query, saving result to a partial file in hdfs
         FileSystem fs = FileSystem.get(context.getConfiguration());
         String partialFilename = PARTIALS_DIR + "/partial_" + key.toString() + ".xml";
-        //LOG.trace("Saving temp file to HDFS: " + partialFilename);
         OutputStream partialFile = fs.create(new Path(partialFilename));
-        partialFile.write(value.getBytes());
+        SubQuery.executeSubQuery(subquery, partialFile);
         partialFile.close();
         
         context.write(NullWritable.get(), new Text(partialFilename));
+    }
+
+    private void processFragment(String fragment) throws IOException {
+
+        Query q = Query.getUniqueInstance(true);
+        SubQuery sbq = SubQuery.getUniqueInstance(true);
+        
+        StringReader sr = new StringReader(fragment);
+        BufferedReader buff = new BufferedReader(sr);
+
+        String line;
+        while((line = buff.readLine()) != null){    
+
+            if (!line.toUpperCase().contains("<ORDERBY>") && !line.toUpperCase().contains("<ORDERBYTYPE>") 
+                    && !line.toUpperCase().contains("<AGRFUNC>")) {                         
+                subquery = subquery + " " + line;
+            }
+            else {
+                // obter as cláusulas do orderby e de funçoes de agregaçao
+                if (line.toUpperCase().contains("<ORDERBY>")){
+                    String orderByClause = line.substring(line.indexOf("<ORDERBY>")+"<ORDERBY>".length(), line.indexOf("</ORDERBY>"));
+                    q.setOrderBy(orderByClause);
+                }
+                
+                if (line.toUpperCase().contains("<ORDERBYTYPE>")){
+                    String orderByType= line.substring(line.indexOf("<ORDERBYTYPE>")+"<ORDERBYTYPE>".length(), line.indexOf("</ORDERBYTYPE>"));                         
+                    q.setOrderByType(orderByType);
+                }
+                
+                if (line.toUpperCase().contains("<AGRFUNC>")){ // soma 1 para excluir a tralha contida apos a tag <AGRFUNC>
+                    
+                    String aggregateFunctions = line.substring(line.indexOf("<AGRFUNC>")+"<AGRFUNC>".length(), line.indexOf("</AGRFUNC>"));
+                                                
+                    if (!aggregateFunctions.equals("") && !aggregateFunctions.equals("{}")) {
+                        String[] functions = aggregateFunctions.split(","); // separa todas as funções de agregação utilizadas no return statement.
+                    
+                        if (functions!=null) {
+                            
+                            for (String keyMap: functions) {
+                    
+                                String[] hashParts = keyMap.split("=");
+                                
+                                if (hashParts!=null) {
+                    
+                                    q.setAggregateFunc(hashParts[0], hashParts[1]); // o par CHAVE, VALOR
+                                }
+                            }
+                        }
+                    }                       
+                }                       
+            }
+        }
+        
+        subquery = subquery.trim();
+        sbq.setConstructorElement(SubQuery.getConstructorElement(subquery));
     }
 }

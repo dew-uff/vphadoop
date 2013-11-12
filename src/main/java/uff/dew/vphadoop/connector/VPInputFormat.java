@@ -34,9 +34,8 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
     private ArrayList<String> docQueriesWithoutFragmentation;
     private String originalQuery;
     private String inputQuery;
-    private int nnodes = 30;
+    private int nnodes = 3;
     private String xquery;
-    private long startTime;
     private XQueryEngine engine;
 
     @Override
@@ -56,7 +55,13 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         // the query to process
         inputQuery = conf.get(VPConst.DB_XQUERY);
         
+        long start = System.currentTimeMillis();
+        
         svpPressed();
+        
+        long partitionTime = System.currentTimeMillis() - start;
+        
+        LOG.info("VP:partitioningTime: " + partitionTime + "ms");
         
         List<InputSplit> splits = new ArrayList<InputSplit>();
 
@@ -169,7 +174,6 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         
         
         if ((xquery == null) || (!xquery.equals(inputQuery))){ 
-            startTime = System.nanoTime();
             xquery = inputQuery; //  consulta de entrada                  
         }       
         
@@ -195,7 +199,6 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
             engine.execute(originalQuery, false);
             
             if (q.getPartitioningPath()!=null && !q.getPartitioningPath().equals("")) {
-                SubQuery sbq = SubQuery.getUniqueInstance(false); 
                 SimpleVirtualPartitioning svp = new SimpleVirtualPartitioning();
                 svp.setCardinalityOfElement(q.getLastCollectionCardinality());
                 svp.setNumberOfNodes(nnodes);                       

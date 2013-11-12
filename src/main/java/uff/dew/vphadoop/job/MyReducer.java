@@ -51,7 +51,14 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         Configuration conf = context.getConfiguration();
         Catalog.get().setConfiguration(conf);
         Database db = Catalog.get().getDatabase();
+        
+        long startTimestamp = System.currentTimeMillis();
+        
         loadPartialsIntoDatabase(db, values, context);
+        
+        long loadingTimestamp = System.currentTimeMillis();
+        
+        LOG.debug("VP:reducer:tempDBLoadingTime: " + (loadingTimestamp - startTimestamp) + " ms.");
         
         // the constructFinalQuery (below) was originally executed using the same context
         // previously used to retrieve a partial result (at the coordinator node). 
@@ -59,6 +66,10 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         // result. Now we don't have that information, so we need to restore it.
         repopulateQueryAndSubQueryObjects(conf);      
 
+        long repopulateTimestamp = System.currentTimeMillis();
+        
+        LOG.debug("VP:reducer:repopulate: " + (repopulateTimestamp - loadingTimestamp) + " ms.");
+        
         SubQuery sbq = SubQuery.getUniqueInstance(true);
         
         Path path = new Path("result.xml");
@@ -98,7 +109,11 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
             // if retorno contains only the the element constructor then that's the result
             resultWriter.write(retorno.getBytes());
         }
+       
+        long reduceQueryTimestamp = System.currentTimeMillis();
         
+        LOG.debug("VP:reducer:query: " + (reduceQueryTimestamp - repopulateTimestamp) + " ms.");
+
         resultWriter.flush();
         resultWriter.close();
     }

@@ -34,6 +34,8 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
             Context context)
             throws IOException, InterruptedException {
         
+        long start = System.currentTimeMillis();
+        
         // value is the fragment file from SVP
         String fragment = value.toString(); 
         
@@ -47,6 +49,9 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
         SubQuery.executeSubQuery(subquery, partialFile);
         partialFile.close();
         
+        LOG.debug("VP:mapper:executionTime: " + (System.currentTimeMillis() - start) + " ms.");
+        
+        // reducer will receive a list of filenames containing the fragments
         context.write(NullWritable.get(), new Text(partialFilename));
     }
 

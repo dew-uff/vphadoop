@@ -17,9 +17,12 @@ public abstract class BaseDatabase implements Database {
     
     public XQResultSequence executeQuery(String query) throws XQException {
     	LOG.debug("Query: " + query);
+    	long start = System.currentTimeMillis();
         XQConnection conn = dataSource.getConnection();
         XQPreparedExpression exp = conn.prepareExpression(query);
-        return exp.executeQuery();
+        XQResultSequence result = exp.executeQuery();
+        LOG.debug("Query execution time: " + (System.currentTimeMillis() - start) + "ms");
+        return result;
     }
     
     public String executeQueryAsString(String query) throws XQException {

@@ -46,9 +46,11 @@ public class BaseXDatabase extends BaseDatabase {
     
     private void executeCommand(String command) throws XQException {
     	LOG.debug("Command: " + command);
+    	long start = System.currentTimeMillis();
         XQConnection conn = getConnection();
         XQExpression exp = conn.createExpression();
         exp.executeCommand(command);
+        LOG.debug("Command execution time: " + (System.currentTimeMillis() - start) + " ms.");
         exp.close();
         conn.close();
     }

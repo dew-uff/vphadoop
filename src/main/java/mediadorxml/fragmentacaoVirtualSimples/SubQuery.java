@@ -104,31 +104,53 @@ public class SubQuery {
 	}
 	
 	/* Metodo para execucao das sub-consultas geradas na fragmentacao virtual simples */
-	public static void executeSubQuery(String xquery, OutputStream out) throws IOException {
+	public static boolean executeSubQuery(String xquery, OutputStream out) throws IOException {
 	    LOG.debug("executeSubQuery() xquery: " + xquery);
 
 	    Query q = Query.getUniqueInstance(true);
-	
-	    // write XML header
-	    out.write(getTitle().getBytes());
-	    
-	    // write partial result root element
-	    out.write("<partialResult>\r\n".getBytes());
-	    
-	    String internalQuery = getInternalQuery(xquery);
 
-	    Database db = Catalog.get().getDatabase();
+	    boolean hasResults = false;
 	    
-	    // write partial result constructor element
-        String header = sbq.getConstructorElement() + "\r\n";
-        out.write(header.getBytes());
-        
-        // iterate over all results and write them
+	    // get the query inside the constructor element
+        String internalQuery = getInternalQuery(xquery);
+
+
+        Database db = Catalog.get().getDatabase();
+        XQResultSequence rs = null;
         try {
-            XQResultSequence rs = db.executeQuery(internalQuery);
+            // execute the internal query
+            rs = db.executeQuery(internalQuery);
+            
+            boolean addheader = true;
             while (rs.next()) {
-                String item = rs.getItemAsString(null);
-                out.write(item.getBytes());
+                if (addheader) {
+                    hasResults = true;
+                    // write XML header
+                    out.write(getTitle().getBytes());
+                    
+                    // write partial result root element
+                    out.write("<partialResult>\r\n".getBytes());
+                    
+                    // write partial result constructor element
+                    String header = sbq.getConstructorElement() + "\r\n";
+                    out.write(header.getBytes());
+                    addheader = false;
+                }
+                out.write(rs.getItemAsString(null).getBytes());
+            }
+            // if the query returned anything add the footer
+            if (hasResults) {
+                // close partial result constructor element
+                String footer = sbq.getConstructorElement().replace("<", "</");
+                out.write(footer.getBytes());
+
+                if (!q.isOrderByClause()) { // se a consulta original nao possui order by adicione o elemento idOrdem
+                    String partialOrderElement = "<idOrdem>" + getIntervalBeginning(xquery) + "</idOrdem>";
+                    out.write(partialOrderElement.getBytes());
+                }
+
+                // write partial result root ending element
+                out.write("</partialResult>".getBytes());
             }
         }
         catch (XQException e) {
@@ -136,17 +158,7 @@ public class SubQuery {
             throw new IOException(e);
         }
         
-        // close partial result constructor element
-        String footer = sbq.getConstructorElement().replace("<", "</");
-        out.write(footer.getBytes());
-
-        if (!q.isOrderByClause()) { // se a consulta original nao possui order by adicione o elemento idOrdem
-            String partialOrderElement = "<idOrdem>" + getIntervalBeginning(xquery) + "</idOrdem>";
-            out.write(partialOrderElement.getBytes());
-        }
-
-        // write partial result root ending element
-        out.write("</partialResult>".getBytes());
+        return hasResults;
 	}
 	
     private static String getInternalQuery(String xquery) throws IOException {

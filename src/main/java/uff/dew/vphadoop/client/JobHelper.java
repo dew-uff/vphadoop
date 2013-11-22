@@ -113,9 +113,7 @@ public class JobHelper {
 
     private static Set<File> collectJarFilesFromLocalDir(String localJarsDirPath, FileFilter filter) {
         File directoryFile = new File(localJarsDirPath);
-        if (null == directoryFile) {
-            throw new IllegalArgumentException("No directory found at local path: " + localJarsDirPath);
-        }
+
         if (!directoryFile.isDirectory()) {
             throw new IllegalArgumentException("Path points to file, not directory: " + localJarsDirPath);
         }

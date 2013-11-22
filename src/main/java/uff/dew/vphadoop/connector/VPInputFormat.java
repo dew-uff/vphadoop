@@ -34,7 +34,7 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
     private ArrayList<String> docQueriesWithoutFragmentation;
     private String originalQuery;
     private String inputQuery;
-    private int nnodes = 3;
+    private int nnodes = 30;
     private String xquery;
     private XQueryEngine engine;
 

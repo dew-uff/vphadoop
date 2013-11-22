@@ -35,7 +35,7 @@ public abstract class BaseJobRunner implements JobRunner {
             
         } catch (Exception e) {
             e.printStackTrace();
-            if (notifierThread.isAlive()) {
+            if (notifierThread != null && notifierThread.isAlive()) {
                 notifierThread.interrupt();
             }
         }

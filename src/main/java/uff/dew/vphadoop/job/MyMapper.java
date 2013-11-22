@@ -45,14 +45,23 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
         // execute query, saving result to a partial file in hdfs
         FileSystem fs = FileSystem.get(context.getConfiguration());
         String partialFilename = PARTIALS_DIR + "/partial_" + key.toString() + ".xml";
-        OutputStream partialFile = fs.create(new Path(partialFilename));
-        SubQuery.executeSubQuery(subquery, partialFile);
+        Path partialPath = new Path(partialFilename);
+        OutputStream partialFile = fs.create(partialPath);
+        boolean hasResults = SubQuery.executeSubQuery(subquery, partialFile);
         partialFile.close();
+        
+        // if it doesn't have results, delete the partial file
+        if (!hasResults) {
+            fs.delete(partialPath, false);
+        }
+
         
         LOG.debug("VP:mapper:executionTime: " + (System.currentTimeMillis() - start) + " ms.");
         
-        // reducer will receive a list of filenames containing the fragments
-        context.write(NullWritable.get(), new Text(partialFilename));
+        if (hasResults) {
+            // reducer will receive a list of filenames containing the fragments
+            context.write(NullWritable.get(), new Text(partialFilename));
+        }
     }
 
     private void processFragment(String fragment) throws IOException {

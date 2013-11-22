@@ -95,4 +95,9 @@ public class BaseXDatabase extends BaseDatabase {
         
     }
 
+    @Override
+    public String getType() {
+        return DatabaseFactory.TYPE_BASEX;
+    }
+
 }

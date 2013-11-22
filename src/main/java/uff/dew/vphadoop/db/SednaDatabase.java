@@ -105,4 +105,9 @@ public class SednaDatabase extends BaseDatabase {
     private boolean existsCollection(String collectionName) throws XQException {
         return getCardinality("/collections/collection[@name='"+collectionName+"']", "$collections", null) > 0?true:false;
     }
+    
+    @Override
+    public String getType() {
+        return DatabaseFactory.TYPE_SEDNA;
+    }
 }

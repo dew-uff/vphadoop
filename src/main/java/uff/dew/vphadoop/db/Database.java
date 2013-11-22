@@ -26,6 +26,8 @@ public interface Database {
     public String getUsername();
     
     public String getPassword();
+    
+    public String getType();
 
 
 }

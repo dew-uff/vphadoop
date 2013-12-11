@@ -1,6 +1,5 @@
 package mediadorxml.engine.flworprocessor;
 
-import java.io.IOException;
 import java.util.Hashtable;
 
 import mediadorxml.algebra.basic.TreeNode;
@@ -29,22 +28,16 @@ public class ForLetClause extends Clause {
 		this.processSimpleNode(node, debug);
 		
 		Query q;
-		try {
-			q = Query.getUniqueInstance(true);
-			q.setFragmentationAttribute(q.getXpath());
-			
-			Hashtable<String, String> forClauses = (Hashtable<String, String>) q.getForClauses();			
-			
-			if (!forClauses.containsKey(q.getFragmentationVariable())){ // verifica se a varivel j existe na hashTable
-				String variableName = q.getFragmentationVariable();
-				String fragmentationAttributePath = q.getFragmentationAttribute();				
-				q.setForClauses(variableName,q.getLastReadDocumentExpr()+":"+ (q.getLastReadCollectionExpr()!=null && !q.getLastReadCollectionExpr().equals("")?q.getLastReadCollectionExpr()+":":"") +fragmentationAttributePath);
-			}			
-			
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		q = Query.getUniqueInstance(true);
+		q.setFragmentationAttribute(q.getXpath());
+		
+		Hashtable<String, String> forClauses = (Hashtable<String, String>) q.getForClauses();			
+		
+		if (!forClauses.containsKey(q.getFragmentationVariable())){ // verifica se a varivel j existe na hashTable
+			String variableName = q.getFragmentationVariable();
+			String fragmentationAttributePath = q.getFragmentationAttribute();				
+			q.setForClauses(variableName,q.getLastReadDocumentExpr()+":"+ (q.getLastReadCollectionExpr()!=null && !q.getLastReadCollectionExpr().equals("")?q.getLastReadCollectionExpr()+":":"") +fragmentationAttributePath);
+		}			
 	}
 	
 	public Variable getVariable(){
@@ -59,37 +52,20 @@ public class ForLetClause extends Clause {
 		boolean processChild = true;
 		
 		if ("ForClause".equals(element)){					
-				
-				try {
-					Query q = Query.getUniqueInstance(true);
-					final TreeNode newNode = new TreeNode(((SimpleNode)node.jjtGetChild(0)).getText(), TreeNode.RelationTypeEnum.ROOT);					
-					q.setFragmentationVariable("$"+newNode.getLabel()); // indica a ltima varivel XML lida, referente a um FOR.					
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			
+			Query q = Query.getUniqueInstance(true);
+			final TreeNode newNode = new TreeNode(((SimpleNode)node.jjtGetChild(0)).getText(), TreeNode.RelationTypeEnum.ROOT);					
+			q.setFragmentationVariable("$"+newNode.getLabel()); // indica a ltima varivel XML lida, referente a um FOR.					
 		}
 		if ("LetClause".equals(element)){
 			final TreeNode newNode = new TreeNode(((SimpleNode)node.jjtGetChild(0)).getText(), TreeNode.RelationTypeEnum.ROOT);
-			try {
-				Query q = Query.getUniqueInstance(true);
-				q.setLastReadLetVariable("$"+newNode.getLabel()); // Varivel entre o let e o := 				
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			Query q = Query.getUniqueInstance(true);
+			q.setLastReadLetVariable("$"+newNode.getLabel()); // Varivel entre o let e o := 				
 		}		
 		if ("QName".equals(element)){						
 			times = times+1;
-			try {
-				Query q = Query.getUniqueInstance(true);
-				if (times>1)
-					q.setLastReadCollectionExpr(node.getText());				
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}		
+			Query q = Query.getUniqueInstance(true);
+			if (times>1)
+				q.setLastReadCollectionExpr(node.getText());				
 		}
 		
 		if ("VarName".equals(element)){
@@ -100,24 +76,18 @@ public class ForLetClause extends Clause {
 			final TreeNode newNode = new TreeNode(((SimpleNode)node.jjtGetChild(0)).getText(), TreeNode.RelationTypeEnum.ROOT);
 			this.operator.getApt().setAptNode(newNode);
 			
-			try {
-				Query q = Query.getUniqueInstance(true);				
-				
-				if (!q.getLastReadDocumentExpr().equals("")) // se nome do documento j foi preenchido, o prximo texto  a definio do nome da coleo.
-					q.setLastReadCollectionExpr(node.getText());
-								
-				// newNode.getLabel() sempre consome a extenso .xml, no entanto, se na consulta original estiver especificado a extenso
-				// esta ser necessria para consultar a cardinalidade dos elementos do caminho xpath.
-				
-				if ( q.getInputQuery().indexOf(newNode.getLabel()+".xml") != -1 )
-					q.setLastReadDocumentExpr(newNode.getLabel() + ".xml");
-				else 
-					q.setLastReadDocumentExpr(newNode.getLabel());
-				
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			Query q = Query.getUniqueInstance(true);				
+			
+			if (!q.getLastReadDocumentExpr().equals("")) // se nome do documento j foi preenchido, o prximo texto  a definio do nome da coleo.
+				q.setLastReadCollectionExpr(node.getText());
+							
+			// newNode.getLabel() sempre consome a extenso .xml, no entanto, se na consulta original estiver especificado a extenso
+			// esta ser necessria para consultar a cardinalidade dos elementos do caminho xpath.
+			
+			if ( q.getInputQuery().indexOf(newNode.getLabel()+".xml") != -1 )
+				q.setLastReadDocumentExpr(newNode.getLabel() + ".xml");
+			else 
+				q.setLastReadDocumentExpr(newNode.getLabel());
 		}
 		else if ("PathExpr".equals(element)){  // Referente a uma outra varivel j declarada
 			String varName = ((SimpleNode)node.jjtGetChild(0)).getText();

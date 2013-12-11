@@ -16,12 +16,12 @@ public abstract class BaseDatabase implements Database {
     protected XQDataSource dataSource;
     
     public XQResultSequence executeQuery(String query) throws XQException {
-    	LOG.debug("Query: " + query);
+    	LOG.info("Query: " + query);
     	long start = System.currentTimeMillis();
         XQConnection conn = dataSource.getConnection();
         XQPreparedExpression exp = conn.prepareExpression(query);
         XQResultSequence result = exp.executeQuery();
-        LOG.debug("Query execution time: " + (System.currentTimeMillis() - start) + "ms");
+        LOG.info("Query execution time: " + (System.currentTimeMillis() - start) + "ms");
         return result;
     }
     

@@ -1,10 +1,11 @@
 package mediadorxml.fragmentacaoVirtualSimples;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Hashtable;
 
 import mediadorxml.catalog.CatalogManager;
+import uff.dew.vphadoop.db.Catalog;
+import uff.dew.vphadoop.db.DatabaseException;
 
 public class ExistsJoinOperation {
 
@@ -68,10 +69,9 @@ public class ExistsJoinOperation {
 	}	
 	
 	/* Recebe como parmetros os caminhos dos join */
-	public void verifyJoins(String pathJoin1, String pathJoin2, String varJoin1, String varJoin2, String atrJoin1, String atrJoin2) throws IOException{		
+	public void verifyJoins(String pathJoin1, String pathJoin2, String varJoin1, String varJoin2, String atrJoin1, String atrJoin2) throws IOException, DatabaseException{		
 			
 		Query q = Query.getUniqueInstance(true);
-		CatalogManager cm = CatalogManager.getUniqueInstance();
 		
 		Hashtable<String, String> forClauses = (Hashtable<String, String>) q.getForClauses();		
 					
@@ -89,91 +89,88 @@ public class ExistsJoinOperation {
 		String collectionName2 = "";
 		String docName = "";
 		
-		String cardinality = "";
-		String cardinality2 = "";
+		int cardinality = 0;
+		int cardinality2 = 0;
 		if (q.getqueryExprType()!=null && q.getqueryExprType().equals("collection")) {
 			collectionName = q.getCollectionNameByVariableName("$"+varJoin1);
 			collectionName2 = q.getCollectionNameByVariableName("$"+varJoin2);
 			
-		    cardinality = ExecucaoConsulta.executeQuery("let $elm := collection('" + collectionName+ "')/" + q.getPathVariable("$"+varJoin1) + " return count($elm) ");
-		    cardinality2 = ExecucaoConsulta.executeQuery("let $elm := collection('" + collectionName2+ "')/" + q.getPathVariable("$"+varJoin2) + " return count($elm) ");
+		    cardinality = Integer.parseInt(ExecucaoConsulta.executeQuery("let $elm := collection('" + collectionName+ "')/" + q.getPathVariable("$"+varJoin1) + " return count($elm) "));
+		    cardinality2 = Integer.parseInt(ExecucaoConsulta.executeQuery("let $elm := collection('" + collectionName2+ "')/" + q.getPathVariable("$"+varJoin2) + " return count($elm) "));
 			
 		}	
 		else {
 		
 			docName = q.getDocumentNameByVariableName("$"+varJoin1);		
-			cardinality = ExecucaoConsulta.executeQuery(cm.getFormattedQuery(docName, (collectionName!=null && !collectionName.equals("")?", '"+collectionName+"'":""), q.getPathVariable("$"+varJoin1)));
+			cardinality = Catalog.get().getCardinality(q.getPathVariable("$"+varJoin1), docName, collectionName);
 			
 			String docName2 = q.getDocumentNameByVariableName("$"+varJoin2);
-			cardinality2 = ExecucaoConsulta.executeQuery(cm.getFormattedQuery(docName2, (collectionName2!=null && !collectionName2.equals("")?", '"+collectionName2+"'":""), q.getPathVariable("$"+varJoin2)));
-			
-			
+			cardinality2 = Catalog.get().getCardinality(q.getPathVariable("$"+varJoin2), docName2, collectionName2);
 		}		
 		
-		if ( cardinality !=null && cardinality2!=null && Integer.parseInt(cardinality) > 0 && Integer.parseInt(cardinality2) > 0) { // especificou o caminho completo
+		if ( cardinality > 0 && cardinality2 > 0) { // especificou o caminho completo
 			// Verificar se o atributo que possui a menor cardinalidade, uma vez que as chaves primrias, em geral, possuem menor 
 			// cardinalidade que as chaves estrangeiras.
 			
-			if (Integer.parseInt(cardinality)<Integer.parseInt(cardinality2)) {
-				q.setLastJoinCardinality( Integer.parseInt(cardinality) );
+			if (cardinality < cardinality2) {
+				q.setLastJoinCardinality(cardinality);
 				q.setVirtualPartitioningVariable("$"+varJoin1);
 				q.setPartitioningPath(pathJoin1);
-				q.setLastCollectionCardinality(Integer.parseInt(cardinality));
+				q.setLastCollectionCardinality(cardinality);
 			}
 			else {
-				q.setLastJoinCardinality( Integer.parseInt(cardinality2) );
+				q.setLastJoinCardinality(cardinality2);
 				q.setVirtualPartitioningVariable("$"+varJoin2);
 				q.setPartitioningPath(pathJoin2);
-				q.setLastCollectionCardinality(Integer.parseInt(cardinality2));
+				q.setLastCollectionCardinality(cardinality2);
 			}								
 		}
 		else { // especificou caminho incompleto. Ex.: doc()//element
-			
-			if ( cardinality != null && Integer.parseInt(cardinality) == 0) { // caminho da variavel do primeiro join  incompleto
+
+		    if (cardinality == 0) { // caminho da variavel do primeiro join  incompleto
 				cardinality = analyzeAncestral(collectionName, docName, varJoin1, q.getPathVariable("$"+varJoin1));	
 			}
 			
-			if ( cardinality != null && Integer.parseInt(cardinality) > 1) { // s pode fragmentar se houver relao 1:N.				
+			if (cardinality > 1) { // s pode fragmentar se houver relao 1:N.				
 				
 				// Obtenho sempre a que possui a menor cardinalidade, pois eh a que representa a chave primaria entre os elementos envolvidos na juncao.
 				// No entanto, nas se pode executar a fragmentacao sobre um elemento com cardinalidade 1.
 				if ( q.getLastJoinCardinality() == 0 
-						|| (q.getLastJoinCardinality() > Integer.parseInt( cardinality ))
+						|| (q.getLastJoinCardinality() > cardinality)
 						|| q.getLastJoinCardinality() == 1) {					
 					
-					q.setLastJoinCardinality( Integer.parseInt(cardinality) );
+					q.setLastJoinCardinality(cardinality);
 					q.setVirtualPartitioningVariable("$"+varJoin1);					
 				}
 			}
 			
-			if ( cardinality2 != null && Integer.parseInt(cardinality2) == 0 ) { // caminho da variavel do primeiro join  incompleto
+			if (cardinality2 == 0) { // caminho da variavel do primeiro join  incompleto
 							
 				cardinality2 = analyzeAncestral(collectionName, docName, varJoin2, q.getPathVariable("$"+varJoin2));			
 			}
 			
-			if ( cardinality2 != null && Integer.parseInt(cardinality2) > 1) { // s pode fragmentar se houver relao 1:N.
+			if (cardinality2 > 1) { // s pode fragmentar se houver relao 1:N.
 								
 				if ( q.getLastJoinCardinality() == 0 
-						|| q.getLastJoinCardinality() > Integer.parseInt( cardinality2 )
+						|| q.getLastJoinCardinality() > cardinality2
 						|| q.getLastJoinCardinality() == 1) {
 					
-					q.setLastJoinCardinality( Integer.parseInt(cardinality2));
+					q.setLastJoinCardinality(cardinality2);
 					q.setVirtualPartitioningVariable("$"+varJoin2);	
 				}
 			}
-			
 			}
 		}		
 	}
 	
-public String analyzeAncestral(String collectionName, String docName, String varName, String element) throws IOException{
+	public int analyzeAncestral(String collectionName, String docName, String varName, String element) throws IOException, DatabaseException{
 		
 		CatalogManager cm = CatalogManager.getUniqueInstance();
 		Query q = Query.getUniqueInstance(true);
 		
 		String completePath = "";
 		String completePathTmp = "";
-		String cardinality = "0";
+		int cardinality = 0;
 		String addedPath = "";
 		int posSlash = -1;
 		
@@ -198,12 +195,13 @@ public String analyzeAncestral(String collectionName, String docName, String var
 		if ( parentNode!= null && !parentNode.equals("") && !parentNode.contains("Erro") ) {
 			
 			// enquanto a cardinalidade for zero, indica que ainda nao encontramos todos os ancestrais do elemento especificado na consulta
-			while ( parentNode!= null && !parentNode.equals("") && !parentNode.contains("Erro") && Integer.parseInt(cardinality) == 0){
+			while ( parentNode!= null && !parentNode.equals("") && !parentNode.contains("Erro") && cardinality == 0){
 				
 				completePath = parentNode + "/" + completePath;
 				completePathTmp = parentNode + "/" + completePathTmp;
 				addedPath = parentNode + (!addedPath.equals("")?"/"+addedPath:addedPath);
-				cardinality = ExecucaoConsulta.executeQuery(cm.getFormattedQuery(docName, (collectionName!=null && !collectionName.equals("")?", '"+collectionName+"'":""), completePath));
+				cardinality = Catalog.get().getCardinality(completePath, docName, collectionName);
+				
 				xquery = " for $n in doc('$schema_" + (collectionName!=null && !collectionName.equals("")?collectionName:docName) + "')//element"
 					   + " where $n/element/@name = \"" + parentNode +"\""
 				 	   + " return substring($n/@name,1)";
@@ -213,9 +211,9 @@ public String analyzeAncestral(String collectionName, String docName, String var
 			
 			// se a cardinalidade do ultimo elemento for maior que 1, verificar o caminho completo para identificar
 			// o primeiro elemento com ordem N que possui pai com ordem 1.
-			if ( Integer.parseInt(cardinality) > 1 ) {
+			if (cardinality > 1) {
 				
-				while (Integer.parseInt(cardinality) > 1 && !completePath.equals("")) {				
+				while (cardinality > 1 && !completePath.equals("")) {				
 				
 					posSlash = completePath.lastIndexOf("/");
 					if ( posSlash >= 0) {
@@ -228,13 +226,13 @@ public String analyzeAncestral(String collectionName, String docName, String var
 						completePath = ""; 
 					}
 				
-					cardinality = ExecucaoConsulta.executeQuery(cm.getFormattedQuery(docName, (collectionName!=null && !collectionName.equals("")?", '"+collectionName+"'":""), completePath));				
-					
+					cardinality = Catalog.get().getCardinality(completePath, docName, collectionName);
 				}		
 				
-				cardinality = ExecucaoConsulta.executeQuery(cm.getFormattedQuery(docName, (collectionName!=null && !collectionName.equals("")?", '"+collectionName+"'":""), (!completePath.equals("")?completePath+"/":completePath) + completePathTmp));
+				cardinality = Catalog.get().getCardinality((!completePath.equals("")?completePath+"/":completePath) + completePathTmp, 
+				        docName, collectionName);
 				q.setVirtualPartitioningVariable("$"+varName);
-				q.setLastJoinCardinality(Integer.parseInt(cardinality));
+				q.setLastJoinCardinality(cardinality);
 				
 				String partitioningPath = (!completePath.equals("")?completePath+"/":completePath) + completePathTmp;
 				int posBeginning = -1;
@@ -263,6 +261,4 @@ public String analyzeAncestral(String collectionName, String docName, String var
 		
 		return cardinality;
 	}
-
-	
 }

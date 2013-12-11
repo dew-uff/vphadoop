@@ -1,7 +1,5 @@
 package mediadorxml.engine.flworprocessor.util;
 
-import java.io.IOException;
-
 import mediadorxml.algebra.basic.TreeNode;
 import mediadorxml.algebra.operators.SelectOperator;
 import mediadorxml.algebra.operators.functions.FunctionAverageOperator;
@@ -53,29 +51,24 @@ public class EnclosedExpr extends Clause {
 			this.getOperator().getApt().setAptNode(newNode);
 			
 			if (this.isWaitingVarNameFunction()) {
-				try {
-					Query q = Query.getUniqueInstance(true);		
-					
-					
-					// Armazenar no xpath da funcao de agregacao.
-					q.setXpathAggregateFunction("$"+node.getText());
-					q.setWaitingXpathAggregateFunction(true);
-					
-					if (q.getLastReadForLetVariable().equals("")) { // funcao de agregacao apenas na clausula let, nao ha clausula For na consulta						
-						q.setAggregateFunctions(q.getLastReadFunction(), "$"+node.getText(), ""); // ultimo parametro  vazio, pois a consulta deseja obter somente o resultado da funo, no h restrioes tal como count($c)>5.
-					}
-					else {
-						String value = q.getAggregateReturn().get("$"+node.getText());
-						value = value + ":" + q.getLastReturnVariable();					
-						q.setAggregateFunctions(q.getLastReadFunction(), "$"+node.getText(), value); // ultimo parametro  vazio, pois a consulta deseja obter somente o resultado da funo, no h restrioes tal como count($c)>5.
-					}
-					this.setWaitingVarNameFunction(false);
+
+				Query q = Query.getUniqueInstance(true);		
+				
+				
+				// Armazenar no xpath da funcao de agregacao.
+				q.setXpathAggregateFunction("$"+node.getText());
+				q.setWaitingXpathAggregateFunction(true);
+				
+				if (q.getLastReadForLetVariable().equals("")) { // funcao de agregacao apenas na clausula let, nao ha clausula For na consulta						
+					q.setAggregateFunctions(q.getLastReadFunction(), "$"+node.getText(), ""); // ultimo parametro  vazio, pois a consulta deseja obter somente o resultado da funo, no h restrioes tal como count($c)>5.
 				}
-				catch (IOException e) {
-					// TODO: handle exception
+				else {
+					String value = q.getAggregateReturn().get("$"+node.getText());
+					value = value + ":" + q.getLastReturnVariable();					
+					q.setAggregateFunctions(q.getLastReadFunction(), "$"+node.getText(), value); // ultimo parametro  vazio, pois a consulta deseja obter somente o resultado da funo, no h restrioes tal como count($c)>5.
 				}
+				this.setWaitingVarNameFunction(false);
 			}
-			
 		}
 		else if (element.equals("SimplePathExpr")){
 			SimplePathExpr sp = new SimplePathExpr(node, TreeNode.MatchSpecEnum.ZERO_MORE, debug);
@@ -93,59 +86,38 @@ public class EnclosedExpr extends Clause {
 			this.setOperator(new FunctionCountOperator());
 			this.setWaitingVarNameFunction(true);	
 			
-			try {
-				Query q = Query.getUniqueInstance(true);
-				q.setLastReadFunction("count");
-			} catch (IOException e) {
-				// TODO: handle exception
-			}
-			
+			Query q = Query.getUniqueInstance(true);
+			q.setLastReadFunction("count");
 		}
 		else if (element.equals("FuncMax")){
 			this.setOperator(new FunctionMaxOperator());
 			this.setWaitingVarNameFunction(true);	
 			
-			try {
-				Query q = Query.getUniqueInstance(true);
-				q.setLastReadFunction("max");
-			} catch (IOException e) {
-				// TODO: handle exception
-			}
+			Query q = Query.getUniqueInstance(true);
+			q.setLastReadFunction("max");
 		}
 		else if (element.equals("FuncMin")){
 			this.setOperator(new FunctionMinOperator());
 			this.setWaitingVarNameFunction(true);	
 			
-			try {
-				Query q = Query.getUniqueInstance(true);
-				q.setLastReadFunction("min");
-			} catch (IOException e) {
-				// TODO: handle exception
-			}
+			Query q = Query.getUniqueInstance(true);
+			q.setLastReadFunction("min");
 		}
 		else if (element.equals("FuncSum")){
 			this.setOperator(new FunctionSumOperator());
 			
 			this.setWaitingVarNameFunction(true);	
 			
-			try {
-				Query q = Query.getUniqueInstance(true);
-				q.setLastReadFunction("sum");
-			} catch (IOException e) {
-				// TODO: handle exception
-			}
+			Query q = Query.getUniqueInstance(true);
+			q.setLastReadFunction("sum");
 		}
 		else if (element.equals("FuncAverage")){
 			this.setOperator(new FunctionAverageOperator());
 			
 			this.setWaitingVarNameFunction(true);	
 			
-			try {
-				Query q = Query.getUniqueInstance(true);
-				q.setLastReadFunction("average");
-			} catch (IOException e) {
-				// TODO: handle exception
-			}
+			Query q = Query.getUniqueInstance(true);
+			q.setLastReadFunction("average");
 		}
 		
 		if (processChild & (node.jjtGetNumChildren()>0)){

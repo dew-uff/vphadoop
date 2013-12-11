@@ -1,7 +1,6 @@
 package mediadorxml.engine.flworprocessor;
 
 import java.io.IOException;
-import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.Hashtable;
 
@@ -12,18 +11,18 @@ import mediadorxml.algebra.operators.JoinOperator;
 import mediadorxml.algebra.operators.SelectOperator;
 import mediadorxml.algebra.operators.SortOperator;
 import mediadorxml.algebra.operators.functions.FunctionOperator;
-import mediadorxml.catalog.CatalogManager;
 import mediadorxml.engine.flworprocessor.util.ComparisonExpr;
 import mediadorxml.engine.flworprocessor.util.OrderSpec;
 import mediadorxml.engine.flworprocessor.util.Variable;
 import mediadorxml.exceptions.AlgebraParserException;
 import mediadorxml.exceptions.FragmentReductionException;
 import mediadorxml.exceptions.OptimizerException;
-import mediadorxml.fragmentacaoVirtualSimples.ExecucaoConsulta;
 import mediadorxml.fragmentacaoVirtualSimples.ExistsJoinOperation;
 import mediadorxml.fragmentacaoVirtualSimples.Query;
 import mediadorxml.fragmentacaoVirtualSimples.SimpleVirtualPartitioning;
 import mediadorxml.javaccparser.SimpleNode;
+import uff.dew.vphadoop.db.Catalog;
+import uff.dew.vphadoop.db.DatabaseException;
 
 public class FLWOR extends Clause{
 
@@ -124,59 +123,44 @@ public class FLWOR extends Clause{
 		//FOR Clause:
 		if ("ForClause".equals(element)){
 			
-			try {
-				Query q = Query.getUniqueInstance(true);
-				q.setElementConstructor(false); // Indica que no se trata da estrutura XML do resultado a ser mostrada para o usurio
-				q.setOrderByClause(false); // Indica que no se trata da clausula orderBy
-				q.setXpath(""); // Apagar o caminho do ltimo FOR/LET, antes de comear a armazenar o caminho do FOR/LET seguinte. Cada sub-elemento XML  verificado para obter a cardinalidade deste em todo o documento.			
-				q.setLastReadCardinality(-1); // Resetar a cardinalidade, pois se refere a um novo caminho Xpath para um novo FOR.
-				//q.setAddedPredicate(false);		
-				q.setAncestralPath("");
-				
-				final ForClause forClause = new ForClause();
-				forClause.compileForLet(node, debug);				
-				this.insertForLet(forClause);			
-				processChild = false;				
-				
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}			
+			Query q = Query.getUniqueInstance(true);
+			q.setElementConstructor(false); // Indica que no se trata da estrutura XML do resultado a ser mostrada para o usurio
+			q.setOrderByClause(false); // Indica que no se trata da clausula orderBy
+			q.setXpath(""); // Apagar o caminho do ltimo FOR/LET, antes de comear a armazenar o caminho do FOR/LET seguinte. Cada sub-elemento XML  verificado para obter a cardinalidade deste em todo o documento.			
+			q.setLastReadCardinality(-1); // Resetar a cardinalidade, pois se refere a um novo caminho Xpath para um novo FOR.
+			//q.setAddedPredicate(false);		
+			q.setAncestralPath("");
 			
+			final ForClause forClause = new ForClause();
+			forClause.compileForLet(node, debug);				
+			this.insertForLet(forClause);			
+			processChild = false;				
 		}
 		//------------------------------------------
 		//LET Clause:
 		else if ("LetClause".equals(element)){
 			LetClause letClause = new LetClause();
-			try {
-				Query q = Query.getUniqueInstance(true);
-				q.setElementConstructor(false); // Indica que no se trata da estrutura XML do resultado a ser mostrada para o usurio
-				q.setOrderByClause(false); // Indica que no se trata da clausula orderBy
-				q.setXpath(""); // Apagar o caminho do ltimo FOR/LET, antes de comear a armazenar o caminho do FOR/LET seguinte.
-				//q.setAddedPredicate(false);
-				q.setAncestralPath("");
-				q.setLastReadCardinality(-1); // Resetar a cardinalidade, pois se refere a um novo caminho Xpath para um novo LET.
-				letClause.compileForLet(node, debug);
-				this.insertForLet(letClause);					
-					
-				Hashtable<String, String> letClauses = (Hashtable<String, String>) q.getLetClauses();
-				String lastReadLetVariable = q.getLastReadLetVariable();			
-				q.setLastReadSimplePathExpr(q.getXpath());			
+			Query q = Query.getUniqueInstance(true);
+			q.setElementConstructor(false); // Indica que no se trata da estrutura XML do resultado a ser mostrada para o usurio
+			q.setOrderByClause(false); // Indica que no se trata da clausula orderBy
+			q.setXpath(""); // Apagar o caminho do ltimo FOR/LET, antes de comear a armazenar o caminho do FOR/LET seguinte.
+			//q.setAddedPredicate(false);
+			q.setAncestralPath("");
+			q.setLastReadCardinality(-1); // Resetar a cardinalidade, pois se refere a um novo caminho Xpath para um novo LET.
+			letClause.compileForLet(node, debug);
+			this.insertForLet(letClause);					
 				
-				if (!letClauses.containsKey(lastReadLetVariable)){ // verifica se a varivel deste LET j existe na hashtable
-					String lastReadForLetVariable = q.getLastReadForLetVariable(); // a varivel a qual o LET referencia, um nvel acima				
-					String letExpression = lastReadForLetVariable+"/"+q.getXpath();
-					q.setLetClauses(lastReadLetVariable,letExpression);
-				}			
-									
-				processChild = false;		
-				
-				
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}			
+			Hashtable<String, String> letClauses = (Hashtable<String, String>) q.getLetClauses();
+			String lastReadLetVariable = q.getLastReadLetVariable();			
+			q.setLastReadSimplePathExpr(q.getXpath());			
 			
+			if (!letClauses.containsKey(lastReadLetVariable)){ // verifica se a varivel deste LET j existe na hashtable
+				String lastReadForLetVariable = q.getLastReadForLetVariable(); // a varivel a qual o LET referencia, um nvel acima				
+				String letExpression = lastReadForLetVariable+"/"+q.getXpath();
+				q.setLetClauses(lastReadLetVariable,letExpression);
+			}			
+								
+			processChild = false;		
 		}
 		//------------------------------------------
 		//WHERE Clause:
@@ -185,16 +169,11 @@ public class FLWOR extends Clause{
 			for (int i=0; i<where.getComparisons().size(); i++){
 				this.insertComparison(where.getComparisons().get(i));
 
-				try {
-					Query q = Query.getUniqueInstance(true);
-					q.setElementConstructor(true); // Evita consultas por cardinalidade para os predicados de seleo especificados pelo usurio na consulta de entrada.
-					q.setOrderByClause(false); // Indica que no se trata da clausula orderBy
-					q.setXpath(""); // Apagar o caminho do ltimo FOR, antes de comear a armazenar o caminho do FOR seguinte.				
-					q.setLastReadCardinality(-1);
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}							
+				Query q = Query.getUniqueInstance(true);
+				q.setElementConstructor(true); // Evita consultas por cardinalidade para os predicados de seleo especificados pelo usurio na consulta de entrada.
+				q.setOrderByClause(false); // Indica que no se trata da clausula orderBy
+				q.setXpath(""); // Apagar o caminho do ltimo FOR, antes de comear a armazenar o caminho do FOR seguinte.				
+				q.setLastReadCardinality(-1);
 			}
 			
 			processChild = false;
@@ -350,22 +329,24 @@ public class FLWOR extends Clause{
 	}
 	
 	protected void insertForLet(ForLetClause forlet) throws AlgebraParserException{
-		if (this.operator == null)
+		
+	    if (this.operator == null)
 			this.operator = forlet.getOperator();  // Select Operator
 		else{
-			// Verificao se o nodo raz no  referente a uma outra varivel
+			// Verifica se o nodo raiz nao eh referente a uma outra variavel
 			TreeNode n = forlet.getOperator().getApt().getAptRootNode();
 			String label = n.getLabel();
-			//Se comear com "$" faz referncia a outra varivel
+			//Se comecar com "$" faz referencia a outra varivel
 			if (label.charAt(0) == '$'){
 				
 				int varId = this.getVarNodeId(label.substring(1, label.length()));
-				// Incluso da rvore abaixo do nodo da varivel
+				// Inclui a arvore abaixo do nodo da variavel
 				TreeNode varNode = this.operator.findNodeInPlanById(varId);				
 				
 				try {
 					Query q = Query.getUniqueInstance(true);
-					// Obtm o nome do documento, o nome da coleo e o caminho xpath da varivel a qual o LET faz referncia.
+					// Obtem o nome do documento, o nome da colecao e o 
+					// caminho xpath da variavel a qual o LET faz referencia.
 					String documentName = q.getDocumentNameByVariableName(label);
 					String collectionName = q.getCollectionNameByVariableName(label);
 					String xpath = q.getXpathByVariableName(label);
@@ -375,10 +356,10 @@ public class FLWOR extends Clause{
 					String subXpath = "";
 					String LETPath = (!q.getXpath().equals("")?"/"+q.getXpath():q.getXpath()); // caminho da variavel LET desconsiderando o caminho a variavel de referencia
 					
-					CatalogManager cm = CatalogManager.getUniqueInstance();										
-										
+					Catalog catalog = Catalog.get();
+					
 					// cardinalityFor: indica a cardinalidade do ultimo elemento do caminhoXpath indica no FOR ao qual este LET referencia.
-					String cardinalityFor = ExecucaoConsulta.executeQuery(cm.getFormattedQuery(documentName, (collectionName!=null && !collectionName.equals("")?", '"+collectionName+"'":""), xpath));
+					int cardinalityFor = catalog.getCardinality(xpath, documentName, collectionName);
 					
 					/* Se cardinalityFor no for maior que 1, o predicado de seleo deve ser adicionado no LET, caso contrrio, no adicione.
 					 * Ex.1:    for $c in doc('loja','informacoesLoja')/Loja/Itens/Item
@@ -392,9 +373,7 @@ public class FLWOR extends Clause{
   						est especificado nele e no no FOR.  						
   							     
 					 * */
-
-
-					if ( Integer.parseInt(cardinalityFor.replace(".0", "")) <= 1 && !q.isAddedPredicate()) { 
+					if (cardinalityFor <= 1 && !q.isAddedPredicate()) { 
 						
 						while ( q.getLastReadCardinality()<=1 ) {
 													
@@ -406,9 +385,9 @@ public class FLWOR extends Clause{
 								subXpath = subXpath + (!subXpath.equals("")?"/":"") + completePathLet;
 							}
 														
-							String cardinality = ExecucaoConsulta.executeQuery(cm.getFormattedQuery(documentName, (collectionName!=null && !collectionName.equals("")?", '"+collectionName+"'":""), subXpath));
+							int cardinality = catalog.getCardinality(subXpath, documentName, collectionName);
 													
-							if (Integer.parseInt(cardinality.replace(".0", ""))>1){
+							if (cardinality > 1){
 								
 								if (LETPath.indexOf(completePathLet)!=-1) {
 									LETPath = LETPath.substring(0, LETPath.indexOf(completePathLet)-1); // obtem o caminho do let ate o ultimo elemento cuja cardinalidade foi verificada.
@@ -431,7 +410,7 @@ public class FLWOR extends Clause{
 								if ( OriginalPath.indexOf(xpath + LETPath) != -1 && !q.isAddedPredicate() ) { // Se ainda no adicionou nenhum predicado no caminho xpath da varivel em questo.								
 								
 									SimpleVirtualPartitioning svp = SimpleVirtualPartitioning.getUniqueInstance(true);								
-									svp.setCardinalityOfElement(Integer.parseInt(cardinality.replace(".0", "")));								
+									svp.setCardinalityOfElement(cardinality);								
 									
 									// cria os sub-intervalos para a varivel relacionada ao caminho xpath lido.								
 									svp.getSelectionPredicate(-1,q.getFragmentationVariable());								
@@ -444,18 +423,13 @@ public class FLWOR extends Clause{
 									pathReplaceTo = pathReplaceTo + LETPath;
 							
 									// Acrescenta o predicado ao caminho xpath
-									svp.addVirtualPredicates(pathReplaceTo, q.getFragmentationVariable(), Integer.parseInt(cardinality.replace(".0", "")));
-															
+									svp.addVirtualPredicates(pathReplaceTo, q.getFragmentationVariable(), cardinality);
 								}	
 							}	
 							
-							q.setLastReadCardinality(Integer.parseInt(cardinality.replace(".0", "")));
-							
+							q.setLastReadCardinality(cardinality);
 						}	// fim while
-					
 					} // fim if cardinalityFor
-					
-					
 				} catch (Exception e) {
 					// TODO: handle exception
 				}
@@ -592,7 +566,12 @@ public class FLWOR extends Clause{
 			completePath2 = "$" + n2.getLabel() + "/" +completePath2;						
 						
 			ExistsJoinOperation ej= new ExistsJoinOperation(q.getInputQuery());
-			ej.verifyJoins(completePath1, completePath2, n1.getLabel(), n2.getLabel(), atr1, atr2);
+			try {
+			    ej.verifyJoins(completePath1, completePath2, n1.getLabel(), n2.getLabel(), atr1, atr2);
+			}
+			catch(DatabaseException dbe) {
+			    throw new IOException(dbe);
+			}
 		}	
 	}
 	

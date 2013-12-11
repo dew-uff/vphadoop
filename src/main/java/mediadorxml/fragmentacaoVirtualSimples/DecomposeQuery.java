@@ -3,10 +3,9 @@ package mediadorxml.fragmentacaoVirtualSimples;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Hashtable;
-import java.util.Iterator;
-import java.util.Set;
 
 import mediadorxml.catalog.CatalogManager;
+import uff.dew.vphadoop.db.Catalog;
 
 public class DecomposeQuery {
 
@@ -33,7 +32,7 @@ public class DecomposeQuery {
 		this.totalNumberElements = totalNumberElements;
 	}
 
-	public static DecomposeQuery getUniqueInstance(boolean getunique) throws IOException{		
+	public static DecomposeQuery getUniqueInstance(boolean getunique) {		
 		if (decQry == null || !getunique)
 			decQry = new DecomposeQuery();
 		
@@ -48,7 +47,7 @@ public class DecomposeQuery {
 		this.totalNumberDocs = totalNumberDocs;
 	}
 	
-	public ArrayList<String> getSubQueries(String xquery, String originalQuery, int posVariable, String collectionName, String varName) throws IOException{
+	public ArrayList<String> getSubQueries(String xquery, String originalQuery, int posVariable, String collectionName, String varName) throws Exception {
 	    		
 	    String result = ExecucaoConsulta.executeQuery(xquery);	    
 	    String[] documentsName = result.split(",");	    
@@ -228,15 +227,13 @@ public class DecomposeQuery {
 
 	}
 	
-	public String verifyCardinalityXpath(String xPath, String documentName, String collectionName, String variableName) throws IOException{
-		
-		CatalogManager cm = CatalogManager.getUniqueInstance();
+	public String verifyCardinalityXpath(String xPath, String documentName, String collectionName, String variableName) throws Exception{
 		
 		xPath = xPath.substring(1, xPath.length()); // retirar a primeira barra do incio do caminho xpath
 		
 		String subPath = "";
 		int posBarra = -1;
-		String cardinality;
+		int cardinality;
 		String completePath = "";	
 						
 		/* Se o primeiro caracter no for barra, o usurio especificou o caminho xpath completo. (turma/estudantes/estudante/nome)
@@ -253,9 +250,9 @@ public class DecomposeQuery {
 				subPath = xPath;
 			}
 			
-			cardinality = ExecucaoConsulta.executeQuery(cm.getFormattedQuery(documentName, ", '" + collectionName + "'", subPath));	
+			cardinality = Catalog.get().getCardinality(subPath, documentName, collectionName);
 									
-			if ( Integer.parseInt(cardinality) == 1 ) { // No pode haver fragmentao se no houver relao 1:N; Cardinalidade do primeiro elemento
+			if (cardinality == 1) { // No pode haver fragmentao se no houver relao 1:N; Cardinalidade do primeiro elemento
 							
 				do {
 					posBarra = completePath.indexOf("/"); // obtm a posio da barra seguinte. Ex.: estudantes/estudante/nome			
@@ -270,13 +267,13 @@ public class DecomposeQuery {
 						}
 					}
 					
-					cardinality = ExecucaoConsulta.executeQuery(cm.getFormattedQuery(documentName, ", '" + collectionName + "'", subPath));
+					cardinality = Catalog.get().getCardinality(subPath, documentName, collectionName);
 							
-				} while (Integer.parseInt(cardinality) <= 1 && !completePath.equals(""));				
+				} while (cardinality <= 1 && !completePath.equals(""));				
 				
 				this.setLastCompleteOriginalPath(subPath+(!completePath.equals("")?"/"+completePath:""));
 				
-				this.setTotalNumberElements( this.getTotalNumberElements() + Integer.parseInt(cardinality));		
+				this.setTotalNumberElements( this.getTotalNumberElements() + cardinality);		
 			}	
 		}
 		else { // caminho incompleto

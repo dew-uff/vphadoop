@@ -17,7 +17,16 @@ public interface Database {
     
     public void createCollectionWithContent(String collectionName, String dirPath) throws XQException;
     
-    public int getCardinality(String xpath, String document, String collection) throws XQException;
+    /**
+     * returns the cardinality of the xpath expression in the database
+     * 
+     * @param xpath
+     * @param document
+     * @param collection
+     * 
+     * @return the cardinality, -1 if error
+     */
+    public int getCardinality(String xpath, String document, String collection);
     
     public String getHost();
     

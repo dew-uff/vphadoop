@@ -1,10 +1,8 @@
 package mediadorxml.fragmentacaoVirtualSimples;
 
 import java.io.IOException;
-import java.util.Set;
 import java.util.ArrayList;
 import java.util.Hashtable;
-import java.util.Iterator;
 
 import mediadorxml.catalog.CatalogManager;
 
@@ -291,7 +289,7 @@ public class Query {
 		return queryExprType;
 	}
 	
-	public static Query getUniqueInstance(boolean flag) throws IOException{		
+	public static Query getUniqueInstance(boolean flag) {		
 		if (!flag || _inputQuery == null)
 			_inputQuery = new Query();
 				
@@ -304,7 +302,7 @@ public class Query {
 	 * @param inputQuery A consulta de entrada atravs da interface.
 	 * @throws IOException 
 	 */
-	public ArrayList<String> setqueryExprType(String inputQuery) throws IOException{
+	public ArrayList<String> setqueryExprType(String inputQuery) throws Exception{
 				
 		int posIn = -1;						
 		int posParentese = -1;

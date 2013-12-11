@@ -129,7 +129,7 @@ public class HadoopJobRunner extends BaseJobRunner {
             bw.write("<"+DatabaseFactory.CONFIG_FILE_USERNAME_ELEMENT+">"+ dbUser+"</"+DatabaseFactory.CONFIG_FILE_USERNAME_ELEMENT+">\n");
             bw.write("<"+DatabaseFactory.CONFIG_FILE_PASSWORD_ELEMENT+">"+ dbPassword+"</"+DatabaseFactory.CONFIG_FILE_PASSWORD_ELEMENT+">\n");
             if (dbType.equals(DatabaseFactory.TYPE_SEDNA)) {
-                bw.write("<"+DatabaseFactory.CONFIG_FILE_DATABASE_ELEMENT+">"+ "dblp" +"</"+DatabaseFactory.CONFIG_FILE_DATABASE_ELEMENT+">\n");
+                bw.write("<"+DatabaseFactory.CONFIG_FILE_DATABASE_ELEMENT+">"+ "small" +"</"+DatabaseFactory.CONFIG_FILE_DATABASE_ELEMENT+">\n");
             }
             bw.write("</database>\n");
             bw.write("</vphadoop>\n");

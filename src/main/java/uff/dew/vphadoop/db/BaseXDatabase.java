@@ -56,11 +56,19 @@ public class BaseXDatabase extends BaseDatabase {
     }
 
     @Override
-    public int getCardinality(String xpath, String document, String collection)
-            throws XQException {
+    public int getCardinality(String xpath, String document, String collection) {
+        
         String query = "let $elm := doc('" + document + "')/" + xpath + " return count($elm)";
         
-        return Integer.parseInt(executeQueryAsString(query));
+        int result = -1;
+        try {
+            result = Integer.parseInt(executeQueryAsString(query));            
+        }
+        catch (XQException e) {
+            e.printStackTrace();
+        }
+        
+        return result;
     }
     
     @Override

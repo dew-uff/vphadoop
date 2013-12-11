@@ -57,7 +57,12 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         
         long start = System.currentTimeMillis();
         
-        svpPressed();
+        try {
+            svpPressed();
+        } 
+        catch (Exception e) {
+            throw new IOException(e);
+        }
         
         long partitionTime = System.currentTimeMillis() - start;
         
@@ -104,7 +109,7 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         return splits;
     }
 
-    private void xqueryPressed() throws IOException {
+    private void xqueryPressed() throws Exception {
         
         Query q = Query.getUniqueInstance(true);
         
@@ -135,7 +140,7 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         }
     }
 
-    private void svpPressed() throws IOException {
+    private void svpPressed() throws Exception {
         
         xqueryPressed();
         

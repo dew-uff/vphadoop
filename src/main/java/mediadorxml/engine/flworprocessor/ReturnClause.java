@@ -1,6 +1,5 @@
 package mediadorxml.engine.flworprocessor;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Hashtable;
 
@@ -82,108 +81,95 @@ public class ReturnClause extends Clause {
 				aptNode = aptNode.getParentNode();
 		}
 		else if ("QName".equals(element)){		
-				
-				try {
-					Query q = Query.getUniqueInstance(true);
-					String previousElement = "";
-				
-					
-					if (q.getAggregateReturn()==null || (q.getAggregateReturn()!=null && q.getAggregateReturn().size()==0)) {
-					
-						// Armazena o ultimo elemento lido, antes do elemento atual
-						previousElement = q.getElementsAroundFunction();
-						//previousElement = ( !previousElement.equals("")? previousElement + "|": previousElement );
-						
-						if ( !q.getLastReturnVariable().equals(node.getText()) ){
-						
-							q.setElementsAroundFunction( previousElement + node.getText() + "|");						
-							q.setLastReturnVariable(node.getText());
-						}					
-					}
-					else {
-						q.setLastReturnVariable(node.getText());
-					}
-					
-					if (q.isWaitingXpathAggregateFunction()) {
-						
-						if ( q.getLastReturnVariable()!=null && q.getLastReturnVariable().equals(node.getText()) ){ // esta fechando o elemento que referencia funcao de agregacao. Ex.: <total_items>count($l)</total_items>
-							
-							q.setWaitingXpathAggregateFunction(false);
-							// atualizar o caminho da funcao de agregacao. Se estiver como count($l), atualizar para o caminho completo count($l/order_line).
-							
-							Hashtable<String, String> hashTmp = q.getAggregateReturn();
-							String variableName = "";
-							
-							if ( q.getXpathAggregateFunction() != null && q.getXpathAggregateFunction().indexOf("/") != -1 ){
-								variableName = q.getXpathAggregateFunction().substring(0, q.getXpathAggregateFunction().indexOf("/"));
-							}
-							else if (q.getXpathAggregateFunction() != null) {
-								variableName = q.getXpathAggregateFunction();
-							}
-							
-							// usado para funcoes de agregacao presentes em predicados de selecao
-							if ( variableName != null && hashTmp.get(variableName) != null && hashTmp.get(variableName).indexOf("null:") == -1) {
-								
-								String tmp = hashTmp.get(variableName);
-								tmp = tmp.replace(variableName, q.getXpathAggregateFunction());
-								q.setAggregateReturn(variableName, tmp);								
-													
-								q.setOrderBy(q.getOrderBy());
-							}
-							else { // funcoes de agregacao presentes apenas em clausulas LET e return statements
-																
-								String functionClause = q.getLastReadFunction() + "(" + q.getLastReadLetVariable() + ")";
-								Hashtable<String, String> aggTmp = q.getAggregateFunctions();
-								String tmp = aggTmp.get(functionClause);								
-								tmp = tmp.replace(q.getLastReadLetVariable(), q.getXpathAggregateFunction());
-															
-								if ( q.getElementsAroundFunction().indexOf("|"+node.getText()+"|") != -1 ){
-									String elements = q.getElementsAroundFunction().substring(0, q.getElementsAroundFunction().indexOf("|"+node.getText()+"|"));
-																
-									if ( !elements.equals(node.getText()) ) {
-										q.setElementsAroundFunction(elements + "|");
-										// acerta o caminho ate o elemento da funcao.
-										elements = elements.replace("|", "/");
-										tmp = tmp + ":" + elements + "/" + node.getText();
-										// atualiza a variavel q.getElementsAroundFunction()
-										
-									}
-									else {
-										
-										tmp = tmp + ":" + node.getText();
-									}
-									 
-								}
-								else { // ele eh o proprio elemento apos o return
-									tmp = tmp + ":" + node.getText();	
-								}							
-								
-								q.setAggregateFunc(functionClause, tmp);
-								
-							}
-							
-						} 
-						
-					}
-					else if (q.getAggregateReturn()==null || (q.getAggregateReturn()!=null && q.getAggregateReturn().size()==0)) {
-						
-						if ( previousElement.indexOf("|" + node.getText() + "|") != -1 ) { // ir retirando os elementos que estao sendo fechados do caminho da funcao.
-							previousElement = previousElement.substring(0, previousElement.indexOf("|" + node.getText() + "|") );
-							if (previousElement.indexOf("|") != previousElement.length()-1) {
-								previousElement = previousElement + "|"; // sempre deve conter | no final
-							}
-							q.setElementsAroundFunction(previousElement);
-						}
-							
+
+			Query q = Query.getUniqueInstance(true);
+			String previousElement = "";
 			
+			if (q.getAggregateReturn()==null || (q.getAggregateReturn()!=null && q.getAggregateReturn().size()==0)) {
+			
+				// Armazena o ultimo elemento lido, antes do elemento atual
+				previousElement = q.getElementsAroundFunction();
+				//previousElement = ( !previousElement.equals("")? previousElement + "|": previousElement );
+				
+				if ( !q.getLastReturnVariable().equals(node.getText()) ){
+				
+					q.setElementsAroundFunction( previousElement + node.getText() + "|");						
+					q.setLastReturnVariable(node.getText());
+				}					
+			}
+			else {
+				q.setLastReturnVariable(node.getText());
+			}
+			
+			if (q.isWaitingXpathAggregateFunction()) {
+				
+				if ( q.getLastReturnVariable()!=null && q.getLastReturnVariable().equals(node.getText()) ){ // esta fechando o elemento que referencia funcao de agregacao. Ex.: <total_items>count($l)</total_items>
+					
+					q.setWaitingXpathAggregateFunction(false);
+					// atualizar o caminho da funcao de agregacao. Se estiver como count($l), atualizar para o caminho completo count($l/order_line).
+					
+					Hashtable<String, String> hashTmp = q.getAggregateReturn();
+					String variableName = "";
+					
+					if ( q.getXpathAggregateFunction() != null && q.getXpathAggregateFunction().indexOf("/") != -1 ){
+						variableName = q.getXpathAggregateFunction().substring(0, q.getXpathAggregateFunction().indexOf("/"));
+					}
+					else if (q.getXpathAggregateFunction() != null) {
+						variableName = q.getXpathAggregateFunction();
 					}
 					
-					
+					// usado para funcoes de agregacao presentes em predicados de selecao
+					if ( variableName != null && hashTmp.get(variableName) != null && hashTmp.get(variableName).indexOf("null:") == -1) {
+						
+						String tmp = hashTmp.get(variableName);
+						tmp = tmp.replace(variableName, q.getXpathAggregateFunction());
+						q.setAggregateReturn(variableName, tmp);								
+											
+						q.setOrderBy(q.getOrderBy());
+					}
+					else { // funcoes de agregacao presentes apenas em clausulas LET e return statements
+														
+						String functionClause = q.getLastReadFunction() + "(" + q.getLastReadLetVariable() + ")";
+						Hashtable<String, String> aggTmp = q.getAggregateFunctions();
+						String tmp = aggTmp.get(functionClause);								
+						tmp = tmp.replace(q.getLastReadLetVariable(), q.getXpathAggregateFunction());
+													
+						if ( q.getElementsAroundFunction().indexOf("|"+node.getText()+"|") != -1 ){
+							String elements = q.getElementsAroundFunction().substring(0, q.getElementsAroundFunction().indexOf("|"+node.getText()+"|"));
+														
+							if ( !elements.equals(node.getText()) ) {
+								q.setElementsAroundFunction(elements + "|");
+								// acerta o caminho ate o elemento da funcao.
+								elements = elements.replace("|", "/");
+								tmp = tmp + ":" + elements + "/" + node.getText();
+								// atualiza a variavel q.getElementsAroundFunction()
+								
+							}
+							else {
+								
+								tmp = tmp + ":" + node.getText();
+							}
+							 
+						}
+						else { // ele eh o proprio elemento apos o return
+							tmp = tmp + ":" + node.getText();	
+						}							
+						
+						q.setAggregateFunc(functionClause, tmp);
+						
+					}
+				} 
+			}
+			else if (q.getAggregateReturn()==null || (q.getAggregateReturn()!=null && q.getAggregateReturn().size()==0)) {
+				
+				if ( previousElement.indexOf("|" + node.getText() + "|") != -1 ) { // ir retirando os elementos que estao sendo fechados do caminho da funcao.
+					previousElement = previousElement.substring(0, previousElement.indexOf("|" + node.getText() + "|") );
+					if (previousElement.indexOf("|") != previousElement.length()-1) {
+						previousElement = previousElement + "|"; // sempre deve conter | no final
+					}
+					q.setElementsAroundFunction(previousElement);
 				}
-				catch (IOException e) {
-					// TODO: handle exception
-				}
-			//}
+			}
 		}
 		
 		if (processChild & (node.jjtGetNumChildren()>0)){

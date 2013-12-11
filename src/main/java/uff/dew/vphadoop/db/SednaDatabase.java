@@ -1,6 +1,7 @@
 package uff.dew.vphadoop.db;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 
 import javax.xml.xquery.XQConnection;
@@ -46,7 +47,15 @@ public class SednaDatabase extends BaseDatabase {
             throws XQException {
         createCollection(collectionName);
         File dir = new File(dirPath);
-        File[] files = dir.listFiles();
+        File[] files = dir.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File file) {
+                if (file.getName().endsWith(".xml")) {
+                    return true;
+                }
+                return false;
+            }
+        });
         for(File file: files) {
             loadFileInCollection(collectionName, file.getAbsolutePath());
         }
@@ -64,11 +73,18 @@ public class SednaDatabase extends BaseDatabase {
     }
     
     @Override
-    public int getCardinality(String xpath, String document, String collection)
-            throws XQException {
-        String query = "let $elm := doc('" + document + ((collection != null && collection.length() > 0)?("', '"+ collection):"") +"')" + xpath + " return count($elm)";
+    public int getCardinality(String xpath, String document, String collection) {
+        String query = "let $elm := doc('" + document + ((collection != null && collection.length() > 0)?("', '"+ collection):"") +"')/" + xpath + " return count($elm)";
         
-        return Integer.parseInt(executeQueryAsString(query));
+        int result = -1;
+        try {
+            result = Integer.parseInt(executeQueryAsString(query));            
+        }
+        catch (XQException e) {
+            e.printStackTrace();
+        }
+        
+        return result;
     }
 
     @Override

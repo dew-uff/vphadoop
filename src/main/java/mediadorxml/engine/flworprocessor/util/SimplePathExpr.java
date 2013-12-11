@@ -3,16 +3,16 @@ package mediadorxml.engine.flworprocessor.util;
 import java.io.IOException;
 import java.util.Hashtable;
 
+import uff.dew.vphadoop.db.Catalog;
+import uff.dew.vphadoop.db.DatabaseException;
 import mediadorxml.algebra.basic.TreeNode;
-import mediadorxml.engine.flworprocessor.Clause;
-import mediadorxml.javaccparser.SimpleNode;
-
 import mediadorxml.catalog.CatalogManager;
+import mediadorxml.engine.flworprocessor.Clause;
 import mediadorxml.fragmentacaoVirtualSimples.ExecucaoConsulta;
-import mediadorxml.fragmentacaoVirtualSimples.ExistsJoinOperation;
 import mediadorxml.fragmentacaoVirtualSimples.Query;
 import mediadorxml.fragmentacaoVirtualSimples.SimpleVirtualPartitioning;
 import mediadorxml.fragmentacaoVirtualSimples.SubQuery;
+import mediadorxml.javaccparser.SimpleNode;
 
 public class SimplePathExpr extends Clause {
 	
@@ -82,14 +82,8 @@ public class SimplePathExpr extends Clause {
 			this._varNodeId = this._node.getNodeId();
 			
 			Query q;
-			try {
-				q = Query.getUniqueInstance(true);
-				q.setLastReadCardinality(0);
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}						
-			
+			q = Query.getUniqueInstance(true);
+			q.setLastReadCardinality(0);
 		}		
 		else if (element == "QName"){			
 			Query q;		
@@ -111,15 +105,15 @@ public class SimplePathExpr extends Clause {
 														
 							if ( q.getLastReadCardinality()==-1 || q.getLastReadCardinality()==1 ) { // especificou o caminho completo
 																								
-								String cardinality = ExecucaoConsulta.executeQuery(cm.getFormattedQuery(q.getLastReadDocumentExpr(), (q.getLastReadCollectionExpr()!=null && !q.getLastReadCollectionExpr().equals("")?", '"+q.getLastReadCollectionExpr()+"'":""), this.xpath));
+								int cardinality = Catalog.get().getCardinality(this.xpath, q.getLastReadDocumentExpr(), q.getLastReadCollectionExpr());
 											
 								// Condio para selecionar o atributo de fragmentao: Obter o primeiro elemento no caminho xpath da consulta, cuja cardinalidade no documento XML  maior que 1.
-								if ( Integer.parseInt(cardinality.replace(".0", ""))>1 ) {
+								if (cardinality > 1 ) {
 									
 									if ( !q.isAddedPredicate() ) { // Se ainda no adicionou nenhum predicado no caminho xpath da varivel em questo.
 										
 										SimpleVirtualPartitioning svp = SimpleVirtualPartitioning.getUniqueInstance(true);								
-										svp.setCardinalityOfElement(Integer.parseInt(cardinality.replace(".0", "")));								
+										svp.setCardinalityOfElement(cardinality);								
 										
 										// cria os sub-intervalos para a varivel relacionada ao caminho xpath lido.								
 										svp.getSelectionPredicate(-1,q.getFragmentationVariable());								
@@ -144,12 +138,12 @@ public class SimplePathExpr extends Clause {
 											subpath = q.getInputQuery().substring(posForClause, posPath) + this.xpath;
 										}
 			
-										svp.addVirtualPredicates(subpath, q.getFragmentationVariable(), Integer.parseInt(cardinality.replace(".0", "")));
+										svp.addVirtualPredicates(subpath, q.getFragmentationVariable(), cardinality);
 											
 									}	
 								}
 								
-								q.setLastReadCardinality(Integer.parseInt(cardinality.replace(".0", "")));		
+								q.setLastReadCardinality(cardinality);		
 							}
 							else if ( q.getLastReadCardinality()==0 ) { // especificou como doc()//nomeElemento
 								SubQuery sbq = SubQuery.getUniqueInstance(true);										
@@ -191,7 +185,10 @@ public class SimplePathExpr extends Clause {
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
+			} catch (DatabaseException e) {
+			    e.printStackTrace();
 			}
+			
 			 
 			
 			this._node.setLabel(node.getText());			
@@ -205,14 +202,13 @@ public class SimplePathExpr extends Clause {
 	}
 	
 	@SuppressWarnings("static-access")
-	public void analyzeAncestral(String collectionName, String docName, String varName, String element) throws IOException{
+	public void analyzeAncestral(String collectionName, String docName, String varName, String element) throws IOException, DatabaseException {
 		
-		CatalogManager cm = CatalogManager.getUniqueInstance();
 		Query q = Query.getUniqueInstance(true);
 		
 		String completePath = "";
 		String completePathTmp = "";
-		String cardinality = "0";		
+		int cardinality = 0;		
 		
 		// A fragmentao somente ser possvel se algum ancestral imediato do elemento especificado tiver cardinalidade 1.
 		String xquery = " for $n in doc('$schema_" + (collectionName!=null && !collectionName.equals("")?collectionName:docName) + "')//element"
@@ -230,10 +226,10 @@ public class SimplePathExpr extends Clause {
 		String parentNode = exc.executeQuery(xquery);
 		
 		if (docName!=null && !docName.equals("")) { 
-			cardinality = ExecucaoConsulta.executeQuery(cm.getFormattedQuery(docName, (collectionName!=null && !collectionName.equals("")?", '"+collectionName+"'":""), parentNode));
+			cardinality = Catalog.get().getCardinality(parentNode, docName, collectionName);
 			
-			if (Integer.parseInt(cardinality) == 1 ) { // elemento pai tem cardinalidade 1, pode executar a fragmentao. Setar a cardinalidade para 0 de forma a entrar no comando while seguinte.
-				cardinality = "0"; 
+			if (cardinality == 1) { // elemento pai tem cardinalidade 1, pode executar a fragmentao. Setar a cardinalidade para 0 de forma a entrar no comando while seguinte.
+				cardinality = 0; 
 			}
 		}		
 		
@@ -241,13 +237,13 @@ public class SimplePathExpr extends Clause {
 		
 		if ( parentNode!= null && !parentNode.equals("") && !parentNode.contains("Erro") && !q.isAddedPredicate()) {
 			
-			while ( parentNode!= null && !parentNode.equals("") && !parentNode.contains("Erro") && Integer.parseInt(cardinality) == 0){				
+			while ( parentNode!= null && !parentNode.equals("") && !parentNode.contains("Erro") && cardinality == 0){				
 				
 				completePath = parentNode + "/" + completePath;
 				completePathTmp = parentNode + "/" + completePathTmp;				
 				q.setAncestralPath(completePath);
 				
-				cardinality = ExecucaoConsulta.executeQuery(cm.getFormattedQuery(docName, (collectionName!=null && !collectionName.equals("")?", '"+collectionName+"'":""), q.getAncestralPath()));
+				cardinality = Catalog.get().getCardinality(q.getAncestralPath(), docName, collectionName);
 				
 				xquery = " for $n in doc('$schema_" + (collectionName!=null && !collectionName.equals("")?collectionName:docName) + "')//element"
 					   + " where $n/element/@name = \"" + parentNode +"\""
@@ -255,48 +251,39 @@ public class SimplePathExpr extends Clause {
 				parentNode = exc.executeQuery(xquery);			
 			}			
 			
-			if ( Integer.parseInt(cardinality) > 1 ) {
+			if (cardinality > 1) {
 				
 				// verificar se o elemento anterior tem cardinalidade 1.
 				int posSlash = -1;
 				completePath = q.getAncestralPath();
 				
-				while (Integer.parseInt(cardinality) > 1 && !completePath.equals("") && !completePath.equals("")) {				
-					
+				while (cardinality > 1 && !completePath.equals("") && !completePath.equals("")) {				
 					posSlash = completePath.lastIndexOf("/");
 					if ( posSlash >= 0) {
 						// Ex.:    for $it in doc('xmlDataBaseXmark.xml')/site/regions/australia/item/name
 						completePathTmp = completePath.substring(posSlash+1, completePath.length()); // Ex.: name
 						completePath = completePath.substring(0, posSlash); // Ex.: /site/regions/australia/item
-						xquery = "let $elm := doc('" + docName + "'" 
-						+ (collectionName!=null && !collectionName.equals("")?", '" + collectionName + "'":"") 
-						+ ")/" + completePath + " return count($elm)";
-						cardinality = ExecucaoConsulta.executeQuery(xquery);						
+						cardinality = Catalog.get().getCardinality(completePath, docName, collectionName);
 					}
 					else {
-			
-						xquery = "let $elm := doc('" + docName + "'" 
-						+ (collectionName!=null && !collectionName.equals("")?", '" + collectionName + "'":"") 
-						+ ")/" + (!completePath.equals("")?completePath+"/":completePath) + completePathTmp + " return count($elm)";
-						cardinality = ExecucaoConsulta.executeQuery(xquery);
+						cardinality = Catalog.get().getCardinality((!completePath.equals("")?completePath+"/":completePath), docName, collectionName);
 						completePath = ""; 
 					}							
-					
 				}
 				
 				xquery = "let $elm := doc('" + docName + "'" 
 				+ (collectionName!=null && !collectionName.equals("")?", '" + collectionName + "'":"") 
 				+ ")/" + (!completePath.equals("")?completePath+"/":completePath) + completePathTmp + " return count($elm)";
-				cardinality = ExecucaoConsulta.executeQuery(xquery);				
+				cardinality = Catalog.get().getCardinality((!completePath.equals("")?completePath+"/":completePath) + completePathTmp, docName, collectionName);
 				
 				SimpleVirtualPartitioning svp = SimpleVirtualPartitioning.getUniqueInstance(true);
 				
-				svp.setCardinalityOfElement(Integer.parseInt(cardinality));
+				svp.setCardinalityOfElement(cardinality);
 				svp.getSelectionPredicate(-1, varName);				
-				svp.addVirtualPredicates("/"+completePathTmp, varName, Integer.parseInt(cardinality));
+				svp.addVirtualPredicates("/"+completePathTmp, varName, cardinality);
 				q.setAncestralPath(""); // Quando a fragmentao j tiver sido efetuada, no ser necessria analisar os elementos subsequentes.
 				q.setAddedPredicate(true);
-				q.setLastReadCardinality(Integer.parseInt(cardinality));
+				q.setLastReadCardinality(cardinality);
 			}
 			else {				
 				

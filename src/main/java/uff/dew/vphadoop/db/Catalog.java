@@ -2,8 +2,6 @@ package uff.dew.vphadoop.db;
 import java.io.IOException;
 import java.io.InputStream;
 
-import javax.xml.xquery.XQException;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -17,8 +15,6 @@ public class Catalog {
     
     public static final Log LOG = LogFactory.getLog(Catalog.class);
 
-	private static final String cardinalityQuery = "let $elm := # return count($elm)";
-	
 	private static Catalog _instance = null;
 	
 	Database database;
@@ -43,17 +39,17 @@ public class Catalog {
         database = DatabaseFactory.createDatabase(is);
     }
 	
-	public int getCardinality(String xpath) throws IOException {
-	    
-	    LOG.info("xpath: " + xpath);
-		try {
-            String query = cardinalityQuery.replace("#", xpath);
-            String result = database.executeQueryAsString(query);
-            
-            return Integer.parseInt(result);
-        } catch (XQException e) {
-            throw new IOException(e);
-        }
+	public int getCardinality(String xpath, String document, String collection) 
+	        throws DatabaseException {
+        LOG.debug("xpath: " + xpath);
+        
+	    if (database != null) {
+	        return database.getCardinality(xpath, document, collection);
+	    }
+	    else {
+	        throw new DatabaseException("Database object is null!");
+	    }
+
 	}
 	
 	public Database getDatabase() {

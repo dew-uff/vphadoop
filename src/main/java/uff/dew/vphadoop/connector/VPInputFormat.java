@@ -79,31 +79,12 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
             splits.add(is);
         }
         
-        //HACK
+        //TODO HACK
         FileSystem fs = FileSystem.get(conf);
         OutputStream hack = fs.create(new Path("hack.txt"));
         hack.write(queries[0].getBytes());
         hack.close();
         
-//        XPathExpression xpe = new XPathExpression(xquery);
-//        
-//        // determine partition attribute
-//        int cardinality;
-//        int level = 0;
-//        while ((cardinality = Catalog.get().getCardinality(xpe.getSubPath(level))) == 1) {
-//            level++;
-//        }
-//        LOG.debug("Cardinality: " + cardinality);
-//        int step = 1000;
-//        int begin = 0;
-//
-//        while (begin < cardinality) {
-//            int length = (cardinality - begin > step) ? step : cardinality
-//                    - begin;
-//            InputSplit range = new VPInputSplit(begin, length, level);
-//            splits.add(range);
-//            begin += step;
-//        }
         LOG.debug("# of splits: " + splits.size());
         
         return splits;

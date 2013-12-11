@@ -12,8 +12,7 @@ public class VPInputSplit extends InputSplit implements Writable {
     private String query;
 	
 	private int startPos = -1;
-//	private int length = -1;
-//	private int level = -1;
+
 
 	private static String[] nodes = {"127.0.0.1"};
 	
@@ -23,8 +22,6 @@ public class VPInputSplit extends InputSplit implements Writable {
 	
 	public VPInputSplit(int start, String query) {
 		this.startPos = start;
-//		this.length = length;
-//		this.level = level;
 	    this.query = query;
 	}
 	
@@ -42,14 +39,6 @@ public class VPInputSplit extends InputSplit implements Writable {
 	public int getStartPosition() {
 		return startPos;
 	}
-//	
-//	public int getLengh() {
-//		return length;
-//	}
-//	
-//	public int getSelectionLevel() {
-//	    return level;
-//	}
 
     @Override
     public void write(DataOutput out) throws IOException {

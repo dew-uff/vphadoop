@@ -49,7 +49,6 @@ public class Catalog {
 	    else {
 	        throw new DatabaseException("Database object is null!");
 	    }
-
 	}
 	
 	public Database getDatabase() {

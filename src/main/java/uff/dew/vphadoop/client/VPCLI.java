@@ -10,6 +10,12 @@ import uff.dew.vphadoop.client.runner.HadoopJobRunner;
 import uff.dew.vphadoop.client.runner.JobListener;
 import uff.dew.vphadoop.client.runner.JobRunner;
 
+/**
+ * The main class for the CLI version of VPHadoop.
+ * 
+ * @author Gabriel Tessarolli
+ *
+ */
 public class VPCLI {
     
     private static String resultFile;
@@ -18,6 +24,10 @@ public class VPCLI {
     
     private static JobRunner job;
     
+    /**
+     * Listener to get updates from the Job. When map or reduce status
+     * changes, it is notified, so the user can be notified too
+     */
     private static JobListener myJobListener = new JobListener() {
         
         int mapProgress, reduceProgress;
@@ -57,22 +67,29 @@ public class VPCLI {
         
     };
 
+    /**
+     * The main function for CLI version
+     * 
+     * @param args Array of parameters.
+     */
     public static void main(String[] args) {
 
-        if (args.length < 3) {
+        if (args.length < 5) {
             System.out
-                    .println("Usage: java -jar vphadoop.jar <dbconfiguration.xml> <query.xq> <output_file> <jobtracker> <namenode>");
+                    .println("Usage: java -jar vphadoop.jar <dbconfiguration.xml> "
+                            + "<query.xq> <output_file> <jobtracker> <namenode>");
             System.exit(0);
         }
 
+        // configuration file
         File f = new File(args[0]);
         if (!f.exists()) {
             System.err.println(args[0] + " DB configuration file not found!");
             System.exit(1);
         }
 
+        // query file
         String query = null;
-
         try {
             query = readContentFromFile(args[1]);
             verifyQuery(query);
@@ -92,6 +109,7 @@ public class VPCLI {
         jobtracker = args[3];
         namenode = args[4];
 
+        // process the query
         try {
             processQuery(query,args[0]);
         } catch (IOException e) {
@@ -110,6 +128,14 @@ public class VPCLI {
 
     }
 
+    /**
+     * Load the file content into a String object
+     * 
+     * @param filename The file
+     * @return the content of the file in a string object
+     * @throws FileNotFoundException
+     * @throws IOException
+     */
     private static String readContentFromFile(String filename) throws FileNotFoundException, IOException {
         
         BufferedReader br = new BufferedReader(new FileReader(filename));
@@ -131,21 +157,45 @@ public class VPCLI {
         return everything;
     }
     
+    /**
+     * Checks whether the query fulfills the requirements to process it. If
+     * any problem is found, an exception is raised.<br/>
+     *   1. must start and end with a constructor element<br/> 
+     *   2. must not use the text() function (not supported)<br/>
+     *   3. must have a XML element after return clause<br/>
+     * 
+     * @param query The query to be checked
+     * @throws Exception
+     */
     private static void verifyQuery(String query) throws Exception {
         String returnClause = query.substring(query.indexOf("return")+6, query.length());
         
         if (query.indexOf("<") > 0 || query.lastIndexOf(">") != query.length()-1) {
-            throw new Exception("A consulta de entrada deve iniciar e terminar com um elemento construtor. Exemplo: <resultado> { for $var in ... } </resultado>.");
+            throw new Exception("A consulta de entrada deve iniciar e "
+                    + "terminar com um elemento construtor. Exemplo: <resultado> "
+                    + "{ for $var in ... } </resultado>.");
         }
         else if (query.toUpperCase().indexOf("/TEXT()") != -1) {
-            throw new Exception("O parser deste programa não aceita a função text(). Especifique somente os caminhos xpath para acessar os elementos nos documentos XML.");
+            throw new Exception("O parser deste programa não aceita a função text(). "
+                    + "Especifique somente os caminhos xpath para acessar os "
+                    + "elementos nos documentos XML.");
         }
         else if (returnClause.trim().charAt(0) != '<') {
             
-            throw new Exception("É obrigatória a especificação de um elemento XML após a cláusula return. Ex.: <results> { for $var ... return <elemName> ... </elemName> } </results>");
+            throw new Exception("É obrigatória a especificação de um elemento XML após "
+                    + "a cláusula return. Ex.: <results> { for $var ... return "
+                    + "<elemName> ... </elemName> } </results>");
         }
     }
     
+    /**
+     * Process the query using Hadoop
+     * 
+     * @param query The query to be processed
+     * @param dbConf The configuration file for DB access
+     * @throws IOException
+     * @throws JobException
+     */
     private static void processQuery(String query, String dbConf) throws IOException, JobException {
         HadoopJobRunner hadoopJob = new HadoopJobRunner(query);
         hadoopJob.setHadoopConfiguration(jobtracker, 9000, namenode, 9001);
@@ -157,10 +207,13 @@ public class VPCLI {
         job = hadoopJob;
     }
 
-    
+    /**
+     * Hook function invoked to get the result when the job is successfully completed
+     * 
+     * @throws IOException
+     */
     protected static void saveResult() throws IOException {
         job.saveResultInFile(resultFile);
-        
     }
     
 }

@@ -2,9 +2,6 @@ package mediadorxml.catalog.util;
 
 import java.util.ArrayList;
 
-import mediadorxml.fragmentacaoVirtualSimples.CardinalityQuery;
-import mediadorxml.fragmentacaoVirtualSimples.Collection;
-import mediadorxml.fragmentacaoVirtualSimples.Index;
 import mediadorxml.fragmentacaoVirtualSimples.Reference;
 
 public class Catalog {

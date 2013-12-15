@@ -107,5 +107,4 @@ public class BaseXDatabase extends BaseDatabase {
     public String getType() {
         return DatabaseFactory.TYPE_BASEX;
     }
-
 }

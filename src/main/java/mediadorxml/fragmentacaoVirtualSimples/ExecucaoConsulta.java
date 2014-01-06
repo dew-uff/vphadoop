@@ -4,7 +4,7 @@ import java.io.IOException;
 
 import javax.xml.xquery.XQException;
 
-import uff.dew.vphadoop.db.Catalog;
+import uff.dew.vphadoop.catalog.Catalog;
 import uff.dew.vphadoop.db.Database;
 
 public class ExecucaoConsulta {

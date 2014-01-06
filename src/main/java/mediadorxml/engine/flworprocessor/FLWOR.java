@@ -21,7 +21,7 @@ import mediadorxml.fragmentacaoVirtualSimples.ExistsJoinOperation;
 import mediadorxml.fragmentacaoVirtualSimples.Query;
 import mediadorxml.fragmentacaoVirtualSimples.SimpleVirtualPartitioning;
 import mediadorxml.javaccparser.SimpleNode;
-import uff.dew.vphadoop.db.Catalog;
+import uff.dew.vphadoop.catalog.Catalog;
 import uff.dew.vphadoop.db.DatabaseException;
 
 public class FLWOR extends Clause{

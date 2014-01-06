@@ -19,7 +19,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import uff.dew.vphadoop.VPConst;
-import uff.dew.vphadoop.db.Catalog;
+import uff.dew.vphadoop.catalog.Catalog;
 
 public class XqueryEngineTest {
     

@@ -14,7 +14,16 @@ public abstract class BaseDatabase implements Database {
 	private static Log LOG = LogFactory.getLog(BaseDatabase.class);
     
     protected XQDataSource dataSource;
+    protected String database;
     
+    public String getDatabase() {
+        return database;
+    }
+
+    public void setDatabase(String database) {
+        this.database = database;
+    }
+
     public XQResultSequence executeQuery(String query) throws XQException {
     	LOG.debug("Query: " + query);
     	long start = System.currentTimeMillis();

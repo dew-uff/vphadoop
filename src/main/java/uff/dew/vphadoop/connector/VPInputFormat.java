@@ -25,7 +25,7 @@ import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
 import uff.dew.vphadoop.VPConst;
-import uff.dew.vphadoop.db.Catalog;
+import uff.dew.vphadoop.catalog.Catalog;
 
 public class VPInputFormat extends InputFormat<IntWritable, Text> {
     

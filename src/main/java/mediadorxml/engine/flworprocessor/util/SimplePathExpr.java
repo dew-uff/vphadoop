@@ -3,7 +3,7 @@ package mediadorxml.engine.flworprocessor.util;
 import java.io.IOException;
 import java.util.Hashtable;
 
-import uff.dew.vphadoop.db.Catalog;
+import uff.dew.vphadoop.catalog.Catalog;
 import uff.dew.vphadoop.db.DatabaseException;
 import mediadorxml.algebra.basic.TreeNode;
 import mediadorxml.catalog.CatalogManager;

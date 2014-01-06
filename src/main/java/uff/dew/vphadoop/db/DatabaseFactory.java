@@ -57,7 +57,10 @@ public class DatabaseFactory {
         String pass = doc.getElementsByTagName(CONFIG_FILE_PASSWORD_ELEMENT).item(0)
                 .getTextContent();
         
-        return new BaseXDatabase(host, Integer.parseInt(port), user, pass);
+        String database = doc.getElementsByTagName(CONFIG_FILE_DATABASE_ELEMENT).item(0)
+                .getTextContent();
+        
+        return new BaseXDatabase(host, Integer.parseInt(port), user, pass, database);
     }
     
     private static Database getSednaDatabase(Document doc) throws IOException {

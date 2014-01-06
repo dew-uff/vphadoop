@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.util.Hashtable;
 
 import mediadorxml.catalog.CatalogManager;
-import uff.dew.vphadoop.db.Catalog;
+import uff.dew.vphadoop.catalog.Catalog;
 import uff.dew.vphadoop.db.DatabaseException;
 
 public class ExistsJoinOperation {

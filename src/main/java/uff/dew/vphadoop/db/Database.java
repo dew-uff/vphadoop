@@ -1,7 +1,12 @@
 package uff.dew.vphadoop.db;
 
+import java.util.List;
+import java.util.Map;
+
 import javax.xml.xquery.XQException;
 import javax.xml.xquery.XQResultSequence;
+
+import uff.dew.vphadoop.catalog.Element;
 
 /**
  * This interface is used to provide necessary behavior to the application, 
@@ -115,5 +120,10 @@ public interface Database {
      * @return The type of the database
      */
     public String getType();
+
+    /**
+     * 
+     */
+    public Map<String,List<Element>> getCatalog();
 }
 

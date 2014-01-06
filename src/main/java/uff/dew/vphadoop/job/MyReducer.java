@@ -26,7 +26,7 @@ import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 
-import uff.dew.vphadoop.db.Catalog;
+import uff.dew.vphadoop.catalog.Catalog;
 import uff.dew.vphadoop.db.Database;
 
 public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {

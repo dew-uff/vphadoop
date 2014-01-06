@@ -15,7 +15,7 @@ import mediadorxml.catalog.CatalogManager;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import uff.dew.vphadoop.db.Catalog;
+import uff.dew.vphadoop.catalog.Catalog;
 import uff.dew.vphadoop.db.Database;
 
 public class SubQuery {

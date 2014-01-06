@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.Hashtable;
 
 import mediadorxml.catalog.CatalogManager;
-import uff.dew.vphadoop.db.Catalog;
+import uff.dew.vphadoop.catalog.Catalog;
 
 public class DecomposeQuery {
 

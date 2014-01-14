@@ -5,7 +5,7 @@
 
   <!-- set global properties for this build -->
   <property name="hadoop.root"  location="/opt/hadoop"/>
-  <property name="project.root" location="/home/hduser/repo/vphadoop"/>
+  <property name="project.root" location="."/>
   <property name="src" location="${project.root}/src/main/java"/>
   <property name="build" location="${project.root}/build"/>
   <property name="dist"  location="${project.root}/dist"/>

@@ -3,6 +3,8 @@ package uff.dew.vphadoop.db;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 import javax.xml.xquery.XQConnection;
 import javax.xml.xquery.XQException;
@@ -13,6 +15,8 @@ import net.xqj.sedna.SednaXQDataSource;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
+import uff.dew.vphadoop.catalog.Element;
 
 public class SednaDatabase extends BaseDatabase {
     
@@ -126,4 +130,10 @@ public class SednaDatabase extends BaseDatabase {
     public String getType() {
         return DatabaseFactory.TYPE_SEDNA;
     }
+
+	@Override
+	public Map<String, List<Element>> getCatalog() {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }

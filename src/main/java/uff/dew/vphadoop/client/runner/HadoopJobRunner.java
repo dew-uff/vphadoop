@@ -36,6 +36,7 @@ public class HadoopJobRunner extends BaseJobRunner {
     private static final Log LOG = LogFactory.getLog(HadoopJobRunner.class);
     
     private static final String DB_CONFIG_PATH = "configuration.xml";
+    private static final String DB_CATALOG_PATH = "catalog.xml";
     private static final String OUTPUT_PATH = "output";
     
     private String jobTrackerHost;
@@ -54,6 +55,8 @@ public class HadoopJobRunner extends BaseJobRunner {
     
     private Job job;
 
+	private String dbName;
+
 
 
     public HadoopJobRunner(String query) {
@@ -69,12 +72,13 @@ public class HadoopJobRunner extends BaseJobRunner {
     }
     
     public void setDbConfiguration(String type, String host, int port, String user, 
-            String password) {
+            String password, String dbName) {
         this.dbType = type;
         this.dbHost = host;
         this.dbPort = port;
         this.dbUser = user;
         this.dbPassword = password;
+        this.dbName = dbName;
     }
     
     public void setDbConfiguration(String dbConfFile) {
@@ -107,6 +111,7 @@ public class HadoopJobRunner extends BaseJobRunner {
         //TODO read this from interface
         conf.set(VPConst.DB_XQUERY, xquery);
         conf.set(VPConst.DB_CONFIGFILE_PATH, DB_CONFIG_PATH);
+        conf.set(VPConst.CATALOG_FILE_PATH, DB_CATALOG_PATH);
         
         writeDbConfiguration(conf);
         
@@ -129,7 +134,7 @@ public class HadoopJobRunner extends BaseJobRunner {
             bw.write("<"+DatabaseFactory.CONFIG_FILE_USERNAME_ELEMENT+">"+ dbUser+"</"+DatabaseFactory.CONFIG_FILE_USERNAME_ELEMENT+">\n");
             bw.write("<"+DatabaseFactory.CONFIG_FILE_PASSWORD_ELEMENT+">"+ dbPassword+"</"+DatabaseFactory.CONFIG_FILE_PASSWORD_ELEMENT+">\n");
             if (dbType.equals(DatabaseFactory.TYPE_SEDNA)) {
-                bw.write("<"+DatabaseFactory.CONFIG_FILE_DATABASE_ELEMENT+">"+ "small" +"</"+DatabaseFactory.CONFIG_FILE_DATABASE_ELEMENT+">\n");
+                bw.write("<"+DatabaseFactory.CONFIG_FILE_DATABASE_ELEMENT+">"+ dbName +"</"+DatabaseFactory.CONFIG_FILE_DATABASE_ELEMENT+">\n");
             }
             bw.write("</database>\n");
             bw.write("</vphadoop>\n");

@@ -68,9 +68,12 @@ public class Catalog {
         database = DatabaseFactory.createDatabase(dbConfigIS);
         dbConfigIS.close();
 
-        InputStream catalogIS = dfs.open(new Path(catalogFile));
-        populateCatalogFromFile(catalogIS);
-        if (theCatalog == null) {
+        InputStream catalogIS = null; 
+        try {
+        	catalogIS = dfs.open(new Path(catalogFile));
+        	populateCatalogFromFile(catalogIS);
+        }
+        catch (FileNotFoundException e) {
             createCatalog();
             saveCatalogFile(catalogFile);
         }
@@ -109,7 +112,6 @@ public class Catalog {
     }
 
     private void populateCatalogFromFile(InputStream is) {
-
         
     }
 

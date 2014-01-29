@@ -44,10 +44,12 @@ public abstract class BaseDatabase implements Database {
     
     public static String stringalizeResult(XQResultSequence rs) throws XQException {
         
-        if (rs != null) {
-            return rs.getSequenceAsString(null);           
+        String result = null;
+    	if (rs != null) {
+            result = rs.getSequenceAsString(null);           
+            rs.close();
         }
         
-        return null;
+        return result;
     }
 }

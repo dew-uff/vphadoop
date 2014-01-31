@@ -32,7 +32,7 @@ public class BaseXDatabase extends BaseDatabase {
         basexDataSource.setPort(port);
         basexDataSource.setUser(username);
         basexDataSource.setPassword(password);
-        setDatabase(database);
+        setDatabaseName(database);
         
         dataSource = basexDataSource;
     }
@@ -121,7 +121,7 @@ public class BaseXDatabase extends BaseDatabase {
     @Override
     public Map<String, List<Element>> getCatalog() {
 
-        String query = "index:facets('"+database+"')";
+        String query = "index:facets('"+databaseName+"')";
         
         Map<String,List<Element>> map = null;
         

@@ -20,7 +20,7 @@ public class DatabaseFactory {
     public static final String TYPE_BASEX = "BASEX";
     public static final String TYPE_SEDNA = "SEDNA";
     
-    public static Database createDatabase(InputStream fileStream) throws IOException {
+    public static Database createDatabaseObject(InputStream fileStream) throws IOException {
         
         try
         {

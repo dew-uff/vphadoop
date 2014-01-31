@@ -321,7 +321,6 @@ public class VPGui implements JobListener {
                     usernameField.setText("admin");
                     passwordField.setText("admin");
                     portField.setText("1984");
-                    dbNameField.setEnabled(false);
                 }
             }
         });
@@ -335,7 +334,6 @@ public class VPGui implements JobListener {
                     usernameField.setText("SYSTEM");
                     passwordField.setText("MANAGER");
                     portField.setText("5050");
-                    dbNameField.setEnabled(true);
                 }
             }
         });
@@ -365,7 +363,6 @@ public class VPGui implements JobListener {
         c.gridy = DB_CONF_TYPE_LINE;
         c.insets = new Insets(10, 0, 0, 10);
         dbNameField = new JTextField("regular");
-        dbNameField.setEnabled(false);
         dbNameField.setHorizontalAlignment(JTextField.CENTER);
         pane.add(dbNameField,c);
     }

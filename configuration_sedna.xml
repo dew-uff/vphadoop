@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<vphadoop>
+<database>
+<type>SEDNA</type>
+<serverName>127.0.0.1</serverName>
+<portNumber>5050</portNumber>
+<userName>SYSTEM</userName>
+<userPassword>MANAGER</userPassword>
+<databaseName>regular</databaseName>
+</database>
+</vphadoop>

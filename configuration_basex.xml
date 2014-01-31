@@ -6,5 +6,6 @@
 <portNumber>1984</portNumber>
 <userName>admin</userName>
 <userPassword>admin</userPassword>
+<databaseName>auction</databaseName>
 </database>
 </vphadoop>

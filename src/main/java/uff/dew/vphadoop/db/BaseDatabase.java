@@ -14,14 +14,14 @@ public abstract class BaseDatabase implements Database {
 	private static Log LOG = LogFactory.getLog(BaseDatabase.class);
     
     protected XQDataSource dataSource;
-    protected String database;
+    protected String databaseName;
     
-    public String getDatabase() {
-        return database;
+    public String getDatabaseName() {
+        return databaseName;
     }
 
-    public void setDatabase(String database) {
-        this.database = database;
+    public void setDatabaseName(String name) {
+        this.databaseName = name;
     }
 
     public XQResultSequence executeQuery(String query) throws XQException {

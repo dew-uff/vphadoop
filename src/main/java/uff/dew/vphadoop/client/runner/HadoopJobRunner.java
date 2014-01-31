@@ -49,15 +49,13 @@ public class HadoopJobRunner extends BaseJobRunner {
     private String dbUser;
     private String dbPassword;
     private String dbType;
+	private String dbName;
+    
     private String dbConfFile;
     
     private Path outputPath;
     
     private Job job;
-
-	private String dbName;
-
-
 
     public HadoopJobRunner(String query) {
         super(query);
@@ -85,7 +83,7 @@ public class HadoopJobRunner extends BaseJobRunner {
         this.dbConfFile = dbConfFile;
         try {
             FileInputStream fis = new FileInputStream(dbConfFile);
-            Database db = DatabaseFactory.createDatabase(fis);
+            Database db = DatabaseFactory.createDatabaseObject(fis);
             this.dbType = db.getType();
             fis.close();
         } catch (Exception e) {
@@ -133,9 +131,7 @@ public class HadoopJobRunner extends BaseJobRunner {
             bw.write("<"+DatabaseFactory.CONFIG_FILE_PORT_ELEMENT+">"+ dbPort+"</"+DatabaseFactory.CONFIG_FILE_PORT_ELEMENT+">\n");
             bw.write("<"+DatabaseFactory.CONFIG_FILE_USERNAME_ELEMENT+">"+ dbUser+"</"+DatabaseFactory.CONFIG_FILE_USERNAME_ELEMENT+">\n");
             bw.write("<"+DatabaseFactory.CONFIG_FILE_PASSWORD_ELEMENT+">"+ dbPassword+"</"+DatabaseFactory.CONFIG_FILE_PASSWORD_ELEMENT+">\n");
-            if (dbType.equals(DatabaseFactory.TYPE_SEDNA)) {
-                bw.write("<"+DatabaseFactory.CONFIG_FILE_DATABASE_ELEMENT+">"+ dbName +"</"+DatabaseFactory.CONFIG_FILE_DATABASE_ELEMENT+">\n");
-            }
+            bw.write("<"+DatabaseFactory.CONFIG_FILE_DATABASE_ELEMENT+">"+ dbName +"</"+DatabaseFactory.CONFIG_FILE_DATABASE_ELEMENT+">\n");
             bw.write("</database>\n");
             bw.write("</vphadoop>\n");
             bw.close();

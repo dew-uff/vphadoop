@@ -19,9 +19,11 @@ import uff.dew.vphadoop.client.runner.JobRunner;
 public class VPCLI {
     
     private static String resultFile;
-    private static String jobtracker;
-    private static String namenode;
-    
+    private static String jobtrackerHost;
+    private static String namenodeHost;
+	private static int jobtrackerPort;
+	private static int namenodePort;
+	
     private static JobRunner job;
     
     /**
@@ -74,10 +76,17 @@ public class VPCLI {
      */
     public static void main(String[] args) {
 
-        if (args.length < 5) {
+        if (args.length < 7) {
             System.out
-                    .println("Usage: java -jar vphadoop.jar <dbconfiguration.xml> "
-                            + "<query.xq> <output_file> <jobtracker> <namenode>");
+                    .println("Usage: java -jar vphadoop.jar "
+                    		+ "<dbconfiguration.xml> " //0
+                            + "<query.xq> "            //1
+                            + "<output_file> "         //2
+                            + "<jobtrackerhost> "      //3
+                            + "<jobtrackerport> "      //4
+                            + "<namenodehost> "        //5
+                            + "<namenodeport> "        //6
+                            + "<catalog.xml>");        //7
             System.exit(0);
         }
 
@@ -105,9 +114,18 @@ public class VPCLI {
             System.exit(1);
         }
         
+        try {
+            jobtrackerPort = Integer.parseInt(args[4]);        	
+            namenodePort = Integer.parseInt(args[6]);
+        } catch (NumberFormatException e) {
+        	System.out.println("Ports must be numbers! (" + e.getMessage() + ")");
+        	System.exit(1);
+        }
+        
         resultFile = args[2];
-        jobtracker = args[3];
-        namenode = args[4];
+        jobtrackerHost = args[3];
+        namenodeHost = args[5];
+
 
         // process the query
         try {
@@ -123,9 +141,6 @@ public class VPCLI {
                             + e.getMessage());
             System.exit(1);
         }
-
-
-
     }
 
     /**
@@ -198,7 +213,7 @@ public class VPCLI {
      */
     private static void processQuery(String query, String dbConf) throws IOException, JobException {
         HadoopJobRunner hadoopJob = new HadoopJobRunner(query);
-        hadoopJob.setHadoopConfiguration(jobtracker, 9000, namenode, 9001);
+        hadoopJob.setHadoopConfiguration(jobtrackerHost, jobtrackerPort, namenodeHost, namenodePort);
         hadoopJob.setDbConfiguration(dbConf);
         hadoopJob.addListener(myJobListener);
         

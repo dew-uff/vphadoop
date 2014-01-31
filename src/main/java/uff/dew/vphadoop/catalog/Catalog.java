@@ -41,7 +41,7 @@ public class Catalog {
 	}
 
 	public void parseDbConfig(InputStream dbConfigIS) throws IOException {
-	    database = DatabaseFactory.createDatabase(dbConfigIS);
+	    database = DatabaseFactory.createDatabaseObject(dbConfigIS);
 	}
 	
 	public void parseCatalog(String catalogFilepath) throws IOException {
@@ -65,7 +65,7 @@ public class Catalog {
         FileSystem dfs = FileSystem.get(conf);
         
         InputStream dbConfigIS = dfs.open(new Path(dbConfigFile));
-        database = DatabaseFactory.createDatabase(dbConfigIS);
+        database = DatabaseFactory.createDatabaseObject(dbConfigIS);
         dbConfigIS.close();
 
         InputStream catalogIS = null; 

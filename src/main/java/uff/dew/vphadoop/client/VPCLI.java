@@ -23,6 +23,7 @@ public class VPCLI {
     private static String namenodeHost;
 	private static int jobtrackerPort;
 	private static int namenodePort;
+	private static String catalogFile;
 	
     private static JobRunner job;
     
@@ -76,7 +77,7 @@ public class VPCLI {
      */
     public static void main(String[] args) {
 
-        if (args.length < 7) {
+        if (args.length < 6) {
             System.out
                     .println("Usage: java -jar vphadoop.jar "
                     		+ "<dbconfiguration.xml> " //0
@@ -86,7 +87,7 @@ public class VPCLI {
                             + "<jobtrackerport> "      //4
                             + "<namenodehost> "        //5
                             + "<namenodeport> "        //6
-                            + "<catalog.xml>");        //7
+                            + "[<catalog.xml>]");        //7
             System.exit(0);
         }
 
@@ -126,7 +127,14 @@ public class VPCLI {
         jobtrackerHost = args[3];
         namenodeHost = args[5];
 
-
+        // has catalog
+        if (args.length == 8) {
+        	catalogFile = args[7];
+        }
+        else {
+        	catalogFile = null;
+        }
+        
         // process the query
         try {
             processQuery(query,args[0]);
@@ -215,6 +223,7 @@ public class VPCLI {
         HadoopJobRunner hadoopJob = new HadoopJobRunner(query);
         hadoopJob.setHadoopConfiguration(jobtrackerHost, jobtrackerPort, namenodeHost, namenodePort);
         hadoopJob.setDbConfiguration(dbConf);
+        hadoopJob.setCatalog(catalogFile);
         hadoopJob.addListener(myJobListener);
         
         hadoopJob.runJob();

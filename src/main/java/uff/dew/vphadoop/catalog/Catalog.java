@@ -5,8 +5,15 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import javax.xml.stream.FactoryConfigurationError;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamReader;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -28,7 +35,8 @@ public class Catalog {
 	
 	private Database database;
 	
-	private Map<String,List<Element>> theCatalog;
+	private Map<String,List<Element>> elementsByNameMap;
+	private Map<Integer,Element> elementsByIdMap;
 	
 	private Catalog() {
 	}
@@ -51,7 +59,7 @@ public class Catalog {
 	        populateCatalogFromFile(catalogIS);
 	        catalogIS.close();
 	    }
-        if (theCatalog == null) {
+        if (elementsByNameMap == null) {
             createCatalog();
             saveCatalogFile(catalogFilepath);
         }
@@ -71,16 +79,18 @@ public class Catalog {
         InputStream catalogIS = null; 
         try {
         	catalogIS = dfs.open(new Path(catalogFile));
+        	LOG.debug("Found catalog file: " + catalogFile);
         	populateCatalogFromFile(catalogIS);
         }
         catch (FileNotFoundException e) {
+        	LOG.debug("Catalog file didn't exist. Creating it...");
             createCatalog();
             saveCatalogFile(catalogFile);
         }
     }
 	
 	private void saveCatalogFile(String catalogFile) {
-        if (theCatalog == null) {
+        if (elementsByNameMap == null) {
             return;
         }
         
@@ -89,7 +99,7 @@ public class Catalog {
             StringBuilder content = new StringBuilder();
             content.append("<?xml version=\"1.0\" ?>\n");
             content.append("<catalog>\n");
-            for (List<Element> elements : theCatalog.values()) {
+            for (List<Element> elements : elementsByNameMap.values()) {
                 for (Element e: elements) {
                     content.append("<element id=\""+e.getId() +"\" name=\""+e.getName()+
                             "\" count=\""+e.getCount()+"\" path=\""+e.getPath()+"\" parent=\""+
@@ -108,13 +118,81 @@ public class Catalog {
 
     private void createCatalog() {
 	    
-	    theCatalog = database.getCatalog();
+	    elementsByNameMap = database.getCatalog();
+	    
+	    elementsByIdMap = new HashMap<Integer, Element>();
+	    for(List<Element> sameNameElements : elementsByNameMap.values()) {
+	    	for (Element e : sameNameElements) {
+	    		elementsByIdMap.put(new Integer(e.getId()), e);
+	    	}
+	    }
     }
 
     private void populateCatalogFromFile(InputStream is) {
         
-    }
+    	elementsByNameMap = new HashMap<String, List<Element>>();
+    	elementsByIdMap = new HashMap<Integer, Element>();
+    	
+        try {
+			XMLInputFactory factory = XMLInputFactory.newInstance();
+			XMLStreamReader stream = factory.createXMLStreamReader(is);
+			
+			while (stream.hasNext()) {
+			    int type = stream.next();
+			    
+			    switch (type) {
+			    case XMLStreamReader.START_ELEMENT:
+			        
+			    	if (stream.getLocalName() == "element") {
+			        	
+			        	String idString = stream.getAttributeValue(null, "id");
+			            String name = stream.getAttributeValue(null, "name");
+			            String countString = stream.getAttributeValue(null, "count");
+			            String path = stream.getAttributeValue(null, "path");
+			            String parentString = stream.getAttributeValue(null, "parent");
+			            
+			            if (idString!= null && countString != null 
+			            		&& name != null && path != null 
+			            		&& parentString != null) {
 
+			            	int id = Integer.parseInt(idString);
+			            	int cardinality = Integer.parseInt(countString);
+			            	int parentId = Integer.parseInt(parentString);
+
+			            	Element element = new Element(id, name, cardinality, path);
+			            	element.setParentId(parentId);
+			            	elementsByIdMap.put(new Integer(id), element);
+
+			            	List<Element> elementsSameName = elementsByNameMap.get(name);
+			            	if (elementsSameName == null) {
+			            		elementsSameName = new ArrayList<Element>();
+			            	}
+			            	elementsSameName.add(element);
+			            	elementsByNameMap.put(name, elementsSameName);
+			            }                    
+			        }
+			        break;
+			    }
+			}
+			
+			// after getting all elements, still need to match parents nodes;
+			for (Element e : elementsByIdMap.values()) {
+				if (e.getParentId() != -1) {
+					e.setParent(elementsByIdMap.get(new Integer(e.getParentId())));
+				}
+			}
+		} catch (NumberFormatException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (FactoryConfigurationError e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (XMLStreamException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}            
+    }
+    
     public int getCardinality(String xpath, String document, String collection) 
 	        throws DatabaseException {
         LOG.debug("xpath: " + xpath);

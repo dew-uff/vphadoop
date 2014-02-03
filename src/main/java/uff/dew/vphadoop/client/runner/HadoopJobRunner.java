@@ -57,6 +57,8 @@ public class HadoopJobRunner extends BaseJobRunner {
     
     private Job job;
 
+	private String catalogFile;
+
     public HadoopJobRunner(String query) {
         super(query);
     }
@@ -92,6 +94,10 @@ public class HadoopJobRunner extends BaseJobRunner {
         }
     }
     
+    public void setCatalog(String catalogFile) {
+    	this.catalogFile = catalogFile;
+    }
+    
     @Override
     public int getType() {
         return JobRunner.HADOOP;
@@ -112,6 +118,8 @@ public class HadoopJobRunner extends BaseJobRunner {
         conf.set(VPConst.CATALOG_FILE_PATH, DB_CATALOG_PATH);
         
         writeDbConfiguration(conf);
+        
+        writeCatalog(conf);
         
         job = setupJob(conf);
     }
@@ -140,6 +148,20 @@ public class HadoopJobRunner extends BaseJobRunner {
         fs.close();
     }
 
+    private void writeCatalog(Configuration conf) throws IOException {
+        FileSystem fs = FileSystem.get(URI.create("vphadoop"), conf);
+    	Path catalogPath = new Path(DB_CATALOG_PATH);
+        if (catalogFile != null) {
+            fs.copyFromLocalFile(new Path(catalogFile), catalogPath);
+        }
+        else {
+        	if (fs.exists(catalogPath)) {
+        		fs.delete(catalogPath,false);
+        	}
+        }
+        fs.close();
+    }
+    
     private Job setupJob(Configuration conf) throws IOException {
         
         String localJarsDir = "./dist";

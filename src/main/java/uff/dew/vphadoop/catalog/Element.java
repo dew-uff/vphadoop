@@ -9,12 +9,14 @@ public class Element {
     private Element parent;
     private String path;
     private int id = counter++;
+    private int parentId;
     
     public Element(String name) {
         this.name = name;
         this.count = 0;
         this.parent = null;
         this.path = "";
+        this.parentId = -1;
     }
     
     public Element(String name, int count) {
@@ -22,6 +24,7 @@ public class Element {
         this.count = count;
         this.parent = null;
         this.path = "";
+        this.parentId = -1;
     }
 
     public Element() {
@@ -29,6 +32,16 @@ public class Element {
         this.count = 0;
         this.parent = null;
         this.path = "";
+        this.parentId = -1;
+    }
+    
+    public Element(int id, String name, int count, String path) {
+    	this.id = id;
+    	this.name = name;
+    	this.count = count;
+    	this.path = path;
+    	this.parent = null;
+    	this.parentId = -1;
     }
 
     public String getName() {
@@ -49,6 +62,11 @@ public class Element {
 
     public void setParent(Element parent) {
         this.parent = parent;
+        if (parent != null){
+        	this.parentId = parent.getId();
+        } else {
+        	this.parentId = -1;
+        }
     }
 
     public Element getParent() {
@@ -70,5 +88,12 @@ public class Element {
     public int getId() {
         return id;
     }
-    
+
+    public void setParentId(int parentId) {
+        this.parentId = parentId;
+    }
+
+    public int getParentId() {
+        return parentId;
+    }   
 }

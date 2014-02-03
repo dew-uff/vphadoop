@@ -179,7 +179,9 @@ public class BaseXDatabase extends BaseDatabase {
             case XMLStreamReader.END_ELEMENT:
                 if (stream.getLocalName() == "element") {
                     currentPath = currentPath.substring(0, currentPath.lastIndexOf('/'));
-                    element = null;
+                    if (element != null) {
+                    	element = element.getParent();
+                    }
                 }
             }
         }            

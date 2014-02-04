@@ -3,8 +3,6 @@ package mediadorxml.engine.flworprocessor.util;
 import java.io.IOException;
 import java.util.Hashtable;
 
-import uff.dew.vphadoop.catalog.Catalog;
-import uff.dew.vphadoop.db.DatabaseException;
 import mediadorxml.algebra.basic.TreeNode;
 import mediadorxml.catalog.CatalogManager;
 import mediadorxml.engine.flworprocessor.Clause;
@@ -13,6 +11,7 @@ import mediadorxml.fragmentacaoVirtualSimples.Query;
 import mediadorxml.fragmentacaoVirtualSimples.SimpleVirtualPartitioning;
 import mediadorxml.fragmentacaoVirtualSimples.SubQuery;
 import mediadorxml.javaccparser.SimpleNode;
+import uff.dew.vphadoop.catalog.Catalog;
 
 public class SimplePathExpr extends Clause {
 	
@@ -185,12 +184,8 @@ public class SimplePathExpr extends Clause {
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
-			} catch (DatabaseException e) {
-			    e.printStackTrace();
 			}
-			
-			 
-			
+						 			
 			this._node.setLabel(node.getText());			
 		}
 		
@@ -202,7 +197,7 @@ public class SimplePathExpr extends Clause {
 	}
 	
 	@SuppressWarnings("static-access")
-	public void analyzeAncestral(String collectionName, String docName, String varName, String element) throws IOException, DatabaseException {
+	public void analyzeAncestral(String collectionName, String docName, String varName, String element) throws IOException {
 		
 		Query q = Query.getUniqueInstance(true);
 		

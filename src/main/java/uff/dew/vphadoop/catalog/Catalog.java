@@ -11,14 +11,8 @@ import javax.xml.stream.XMLStreamReader;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 
-import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.db.Database;
-import uff.dew.vphadoop.db.DatabaseException;
-import uff.dew.vphadoop.db.DatabaseFactory;
 
 
 public class Catalog {
@@ -27,7 +21,9 @@ public class Catalog {
 
 	private static Catalog _instance = null;
 	
-	private Database database;
+	private Database database = null;
+	
+	private boolean dbMode = false;
 	
 	private Map<String,Element> elementsByPathMap;
 	private Map<Integer,Element> elementsByIdMap;
@@ -41,38 +37,12 @@ public class Catalog {
 		}
 		return _instance;
 	}
-
-	public void parseDbConfig(InputStream dbConfigIS) throws IOException {
-	    database = DatabaseFactory.createDatabaseObject(dbConfigIS);
+	
+	public void setDatabaseObject(Database database) {
+		this.database = database;
 	}
 	
-    public void setConfiguration(Configuration conf) throws IOException {
-        
-        String dbConfigFile = conf.get(VPConst.DB_CONFIGFILE_PATH);
-        String catalogFile = conf.get(VPConst.CATALOG_FILE_PATH);
-        
-        FileSystem dfs = FileSystem.get(conf);
-        
-        InputStream dbConfigIS = dfs.open(new Path(dbConfigFile));
-        database = DatabaseFactory.createDatabaseObject(dbConfigIS);
-        dbConfigIS.close();
-
-        long start = System.currentTimeMillis();
-        InputStream catalogIS = null; 
-        try {
-        	catalogIS = dfs.open(new Path(catalogFile));
-        	LOG.debug("Found catalog file: " + catalogFile);
-        	populateCatalogFromFile(catalogIS);
-        }
-        catch (FileNotFoundException e) {
-        	LOG.debug("Catalog file didn't exist. Creating it...");
-            createCatalog();
-            saveCatalogFile(catalogFile);
-        }
-        LOG.debug("Finished catalog processing: " + (System.currentTimeMillis() - start) + "ms.");
-    }
-	
-	private void saveCatalogFile(String catalogFile) {
+	public void saveCatalogToFile(String catalogFile) {
         if (elementsByPathMap == null) {
         	LOG.error("Can't save catalog! There was a problem creating it.");
             return;
@@ -99,7 +69,7 @@ public class Catalog {
         }
 	}
 
-    private void createCatalog() {
+    public void createCatalog() {
 	    
     	// get the map according to the specific database system
 	    elementsByPathMap = database.getCatalog();
@@ -112,7 +82,7 @@ public class Catalog {
 	    }
     }
 
-    private void populateCatalogFromFile(InputStream is) {
+    public void populateCatalogFromFile(InputStream is) {
         
     	elementsByPathMap = new HashMap<String, Element>();
     	elementsByIdMap = new HashMap<Integer, Element>();
@@ -166,15 +136,27 @@ public class Catalog {
 		}         
     }
     
-    public int getCardinality(String xpath, String document, String collection) 
-	        throws DatabaseException {
+    public void setDbMode(boolean mode) {
+    	this.dbMode = mode;
+    }
+    
+    public int getCardinality(String xpath, String document, String collection) {
         
     	LOG.debug("xpath: " + xpath);
         
         int cardinality = 0;
         
-        // if catalog exists, use it
-        if (elementsByPathMap != null) {
+        if (dbMode == true || elementsByPathMap == null) {
+        	LOG.debug("Operating DB Mode!");
+    	    if (database != null) {
+    	    	cardinality = database.getCardinality(xpath, document, collection);
+    	    }
+    	    else {
+    	    	LOG.error("Database object is null! Returning invalid cardinality!");
+    	    	return -1;
+    	    }             	
+        }
+        else {
         	Element element = elementsByPathMap.get("/"+xpath);
             if (element == null) {
             	cardinality = 0;
@@ -183,19 +165,7 @@ public class Catalog {
             	cardinality = element.getCount();
             }    
         } 
-        // otherwise proceed with the cardinality query
-        else {
-    	    if (database != null) {
-    	    	cardinality = database.getCardinality(xpath, document, collection);
-    	    }
-    	    else {
-    	    	throw new DatabaseException("Database object is null!");
-    	    }        	
-        }
+
         return cardinality;
-	}
-	
-	public Database getDatabase() {
-	    return database;
 	}
 }

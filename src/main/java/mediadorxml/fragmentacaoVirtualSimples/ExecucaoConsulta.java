@@ -6,6 +6,7 @@ import javax.xml.xquery.XQException;
 
 import uff.dew.vphadoop.catalog.Catalog;
 import uff.dew.vphadoop.db.Database;
+import uff.dew.vphadoop.db.DatabaseFactory;
 
 public class ExecucaoConsulta {
 
@@ -13,7 +14,7 @@ public class ExecucaoConsulta {
 		
 	    try{
 	        
-	        Database db = Catalog.get().getDatabase();
+	        Database db = DatabaseFactory.getSingletonDatabaseObject();
 	    
 	        return db.executeQueryAsString(xquery);
 			

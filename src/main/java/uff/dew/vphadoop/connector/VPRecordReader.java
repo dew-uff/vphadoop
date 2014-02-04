@@ -1,16 +1,21 @@
 package uff.dew.vphadoop.connector;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
-import uff.dew.vphadoop.catalog.Catalog;
+import uff.dew.vphadoop.VPConst;
+import uff.dew.vphadoop.db.DatabaseFactory;
 
 
 
@@ -88,11 +93,15 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 
 	private void readConfiguration(Configuration conf) throws IOException {
 
-	    // the subquery for this fragment
-	    //xquery = conf.get(VPConst.DB_XQUERY);
-	    
-	    // configure catalog for this task tracker
-		Catalog.get().setConfiguration(conf);
+		String configFilePath = conf.get(VPConst.DB_CONFIGFILE_PATH);
+		
+		FileSystem fs = FileSystem.get(URI.create("vphadoop"), conf);
+		InputStream is = fs.open(new Path(configFilePath));
+		
+		// produce database object for this task
+		DatabaseFactory.produceSingletonDatabaseObject(is);
+		
+		is.close();
 	}
 
 	@Override

@@ -17,6 +17,7 @@ import org.apache.commons.logging.LogFactory;
 
 import uff.dew.vphadoop.catalog.Catalog;
 import uff.dew.vphadoop.db.Database;
+import uff.dew.vphadoop.db.DatabaseFactory;
 
 public class SubQuery {
     
@@ -115,7 +116,7 @@ public class SubQuery {
         String internalQuery = getInternalQuery(xquery);
 
 
-        Database db = Catalog.get().getDatabase();
+        Database db = DatabaseFactory.getSingletonDatabaseObject();
         XQResultSequence rs = null;
         try {
             // execute the internal query
@@ -216,7 +217,7 @@ public class SubQuery {
 	public static void deleteCollection() throws IOException {
 		
 	    try {
-	        Database db = Catalog.get().getDatabase();
+	        Database db = DatabaseFactory.getSingletonDatabaseObject();
 	        
 	        db.deleteCollection("tmpResultadosParciais");
             

@@ -5,7 +5,6 @@ import java.util.Hashtable;
 
 import mediadorxml.catalog.CatalogManager;
 import uff.dew.vphadoop.catalog.Catalog;
-import uff.dew.vphadoop.db.DatabaseException;
 
 public class ExistsJoinOperation {
 
@@ -69,7 +68,7 @@ public class ExistsJoinOperation {
 	}	
 	
 	/* Recebe como parmetros os caminhos dos join */
-	public void verifyJoins(String pathJoin1, String pathJoin2, String varJoin1, String varJoin2, String atrJoin1, String atrJoin2) throws IOException, DatabaseException{		
+	public void verifyJoins(String pathJoin1, String pathJoin2, String varJoin1, String varJoin2, String atrJoin1, String atrJoin2) throws IOException {		
 			
 		Query q = Query.getUniqueInstance(true);
 		
@@ -163,7 +162,7 @@ public class ExistsJoinOperation {
 		}		
 	}
 	
-	public int analyzeAncestral(String collectionName, String docName, String varName, String element) throws IOException, DatabaseException{
+	public int analyzeAncestral(String collectionName, String docName, String varName, String element) throws IOException {
 		
 		CatalogManager cm = CatalogManager.getUniqueInstance();
 		Query q = Query.getUniqueInstance(true);

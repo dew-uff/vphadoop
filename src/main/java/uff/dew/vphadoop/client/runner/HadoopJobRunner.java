@@ -5,6 +5,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -24,6 +25,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import uff.dew.vphadoop.VPConst;
+import uff.dew.vphadoop.catalog.Catalog;
 import uff.dew.vphadoop.client.JobHelper;
 import uff.dew.vphadoop.connector.VPInputFormat;
 import uff.dew.vphadoop.db.Database;
@@ -36,7 +38,6 @@ public class HadoopJobRunner extends BaseJobRunner {
     private static final Log LOG = LogFactory.getLog(HadoopJobRunner.class);
     
     private static final String DB_CONFIG_PATH = "configuration.xml";
-    private static final String DB_CATALOG_PATH = "catalog.xml";
     private static final String OUTPUT_PATH = "output";
     
     private String jobTrackerHost;
@@ -56,8 +57,6 @@ public class HadoopJobRunner extends BaseJobRunner {
     private Path outputPath;
     
     private Job job;
-
-	private String catalogFile;
 
     public HadoopJobRunner(String query) {
         super(query);
@@ -85,8 +84,9 @@ public class HadoopJobRunner extends BaseJobRunner {
         this.dbConfFile = dbConfFile;
         try {
             FileInputStream fis = new FileInputStream(dbConfFile);
-            Database db = DatabaseFactory.createDatabaseObject(fis);
-            this.dbType = db.getType();
+            DatabaseFactory.produceSingletonDatabaseObject(fis);
+            Database dbObject = DatabaseFactory.getSingletonDatabaseObject();
+            this.dbType = dbObject.getType();
             fis.close();
         } catch (Exception e) {
             // TODO Auto-generated catch block
@@ -95,7 +95,22 @@ public class HadoopJobRunner extends BaseJobRunner {
     }
     
     public void setCatalog(String catalogFile) {
-    	this.catalogFile = catalogFile;
+
+    	Catalog.get().setDatabaseObject(DatabaseFactory.getSingletonDatabaseObject());
+    	
+    	if (catalogFile != null) {
+    		try {
+            	FileInputStream fis = new FileInputStream(catalogFile);
+            	Catalog.get().populateCatalogFromFile(fis);
+    		} 
+    		catch (FileNotFoundException e) {
+    			Catalog.get().createCatalog();
+    			Catalog.get().saveCatalogToFile(catalogFile);
+    		}
+    	}
+    	else {
+    		Catalog.get().setDbMode(true);
+    	}
     }
     
     @Override
@@ -105,7 +120,8 @@ public class HadoopJobRunner extends BaseJobRunner {
 
     @Override
     protected void prepare() throws IOException {
-        Configuration conf = new Configuration();
+        
+    	Configuration conf = new Configuration();
 
         conf.set("fs.default.name","hdfs://"+jobTrackerHost+":"+jobTrackerPort+"/");
         conf.set("mapred.job.tracker", namenodeHost + ":" + namenodePort);
@@ -115,17 +131,14 @@ public class HadoopJobRunner extends BaseJobRunner {
         //TODO read this from interface
         conf.set(VPConst.DB_XQUERY, xquery);
         conf.set(VPConst.DB_CONFIGFILE_PATH, DB_CONFIG_PATH);
-        conf.set(VPConst.CATALOG_FILE_PATH, DB_CATALOG_PATH);
         
         writeDbConfiguration(conf);
-        
-        writeCatalog(conf);
         
         job = setupJob(conf);
     }
     
     private void writeDbConfiguration(Configuration conf) throws IOException {
-        FileSystem fs = FileSystem.get(URI.create("vphadoop"), conf);
+        FileSystem fs = FileSystem.get(conf);
         if (dbConfFile != null) {
             fs.copyFromLocalFile(new Path(dbConfFile), new Path(DB_CONFIG_PATH));
         } else {
@@ -144,20 +157,6 @@ public class HadoopJobRunner extends BaseJobRunner {
             bw.write("</vphadoop>\n");
             bw.close();
             out.close();            
-        }
-        fs.close();
-    }
-
-    private void writeCatalog(Configuration conf) throws IOException {
-        FileSystem fs = FileSystem.get(URI.create("vphadoop"), conf);
-    	Path catalogPath = new Path(DB_CATALOG_PATH);
-        if (catalogFile != null) {
-            fs.copyFromLocalFile(new Path(catalogFile), catalogPath);
-        }
-        else {
-        	if (fs.exists(catalogPath)) {
-        		fs.delete(catalogPath,false);
-        	}
         }
         fs.close();
     }

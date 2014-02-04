@@ -26,8 +26,9 @@ import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 
-import uff.dew.vphadoop.catalog.Catalog;
+import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.db.Database;
+import uff.dew.vphadoop.db.DatabaseFactory;
 
 public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
 
@@ -49,8 +50,16 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         
         // put every partial result in a temp collection at the database
         Configuration conf = context.getConfiguration();
-        Catalog.get().setConfiguration(conf);
-        Database db = Catalog.get().getDatabase();
+        
+		String configFilePath = conf.get(VPConst.DB_CONFIGFILE_PATH);
+		
+		FileSystem fs = FileSystem.get(conf);
+		
+		InputStream is = fs.open(new Path(configFilePath));
+		DatabaseFactory.produceSingletonDatabaseObject(is);
+		is.close();
+		
+        Database db = DatabaseFactory.getSingletonDatabaseObject();
         
         long startTimestamp = System.currentTimeMillis();
         
@@ -73,7 +82,6 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         SubQuery sbq = SubQuery.getUniqueInstance(true);
         
         Path path = new Path("result.xml");
-        FileSystem fs = FileSystem.get(conf);
         OutputStream resultWriter = fs.create(path);
 
         // if retorno contains just the constructor, means that all the partial results were 

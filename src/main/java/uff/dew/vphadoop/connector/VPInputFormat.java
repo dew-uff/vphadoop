@@ -25,7 +25,6 @@ import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
 import uff.dew.vphadoop.VPConst;
-import uff.dew.vphadoop.catalog.Catalog;
 
 public class VPInputFormat extends InputFormat<IntWritable, Text> {
     
@@ -50,7 +49,6 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
             InterruptedException {
 
         Configuration conf = ctxt.getConfiguration();
-        Catalog.get().setConfiguration(conf);
         
         // the query to process
         inputQuery = conf.get(VPConst.DB_XQUERY);

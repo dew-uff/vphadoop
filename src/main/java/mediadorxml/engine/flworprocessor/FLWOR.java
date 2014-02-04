@@ -22,7 +22,6 @@ import mediadorxml.fragmentacaoVirtualSimples.Query;
 import mediadorxml.fragmentacaoVirtualSimples.SimpleVirtualPartitioning;
 import mediadorxml.javaccparser.SimpleNode;
 import uff.dew.vphadoop.catalog.Catalog;
-import uff.dew.vphadoop.db.DatabaseException;
 
 public class FLWOR extends Clause{
 
@@ -566,12 +565,7 @@ public class FLWOR extends Clause{
 			completePath2 = "$" + n2.getLabel() + "/" +completePath2;						
 						
 			ExistsJoinOperation ej= new ExistsJoinOperation(q.getInputQuery());
-			try {
-			    ej.verifyJoins(completePath1, completePath2, n1.getLabel(), n2.getLabel(), atr1, atr2);
-			}
-			catch(DatabaseException dbe) {
-			    throw new IOException(dbe);
-			}
+		    ej.verifyJoins(completePath1, completePath2, n1.getLabel(), n2.getLabel(), atr1, atr2);
 		}	
 	}
 	

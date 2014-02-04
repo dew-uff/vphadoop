@@ -1,6 +1,5 @@
 package uff.dew.vphadoop.db;
 
-import java.util.List;
 import java.util.Map;
 
 import javax.xml.xquery.XQException;
@@ -124,6 +123,6 @@ public interface Database {
     /**
      * 
      */
-    public Map<String,List<Element>> getCatalog();
+    public Map<String, Element> getCatalog();
 }
 

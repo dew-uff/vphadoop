@@ -3,7 +3,6 @@ package uff.dew.vphadoop.db;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 
 import javax.xml.xquery.XQConnection;
@@ -132,7 +131,7 @@ public class SednaDatabase extends BaseDatabase {
     }
 
 	@Override
-	public Map<String, List<Element>> getCatalog() {
+	public Map<String, Element> getCatalog() {
 		// TODO Auto-generated method stub
 		return null;
 	}

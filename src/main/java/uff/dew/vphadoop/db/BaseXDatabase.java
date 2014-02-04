@@ -1,9 +1,7 @@
 package uff.dew.vphadoop.db;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import javax.xml.stream.XMLStreamException;
@@ -119,11 +117,11 @@ public class BaseXDatabase extends BaseDatabase {
     }
 
     @Override
-    public Map<String, List<Element>> getCatalog() {
+    public Map<String, Element> getCatalog() {
 
         String query = "index:facets('"+databaseName+"')";
         
-        Map<String,List<Element>> map = null;
+        Map<String,Element> map = null;
         
         try {
             XQResultSequence seq = executeQuery(query);
@@ -131,19 +129,20 @@ public class BaseXDatabase extends BaseDatabase {
                 XMLStreamReader stream = seq.getItemAsStream();
                 map = parseIndexFacets(stream);                
             }
+            seq.close();
         } catch (XQException e) {
-            e.printStackTrace();
+        	LOG.error("Error creating catalog! + " + e.getMessage());
         } catch (XMLStreamException e) {
-            e.printStackTrace();
-        }
+        	LOG.error("Error creating catalog! + " + e.getMessage());
+        } 
 
         return map;
     }
 
-    private Map<String, List<Element>> parseIndexFacets(XMLStreamReader stream) throws XMLStreamException {
+    private Map<String, Element> parseIndexFacets(XMLStreamReader stream) throws XMLStreamException {
         
         Element element = null;
-        Map<String, List<Element>> map = new HashMap<String, List<Element>>();
+        Map<String, Element> map = new HashMap<String, Element>();
         String currentPath = "";
         
         while (stream.hasNext()) {
@@ -166,12 +165,7 @@ public class BaseXDatabase extends BaseDatabase {
                         element.setCount(cardinality);
                         element.setName(name);
                         element.setPath(currentPath);
-                        List<Element> elements = map.get(name);
-                        if (elements == null) {
-                            elements = new ArrayList<Element>();
-                        }
-                        elements.add(element);
-                        map.put(name, elements);
+                        map.put(element.getPath(), element);
                     }                    
                 }
 

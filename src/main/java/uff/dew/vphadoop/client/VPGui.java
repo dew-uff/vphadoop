@@ -523,10 +523,13 @@ public class VPGui implements JobListener {
             
             hadoopJob.setHadoopConfiguration(jobTrackerHostField.getText().trim(), Integer.parseInt(jobTrackerPortField.getText().trim()), 
             		namenodeHostField.getText().trim(), Integer.parseInt(namenodePortField.getText().trim()));
+
             String dbType = dbTypeChooser.getSelection().getActionCommand();
-            
             hadoopJob.setDbConfiguration(dbType,hostField.getText().trim(), Integer.parseInt(portField.getText().trim()), 
                     usernameField.getText().trim(), passwordField.getText().trim(), dbNameField.getText().trim());
+            
+            // TODO read file from interface
+            hadoopJob.setCatalog(null);
             
             hadoopJob.addListener(this);
             

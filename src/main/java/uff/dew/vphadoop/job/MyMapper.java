@@ -4,6 +4,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.StringReader;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 import mediadorxml.fragmentacaoVirtualSimples.Query;
 import mediadorxml.fragmentacaoVirtualSimples.SubQuery;
@@ -55,16 +57,33 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
             fs.delete(partialPath, false);
         }
 
-        
-        LOG.debug("VP:mapper:executionTime: " + (System.currentTimeMillis() - start) + " ms.");
+        long timeProcessing = System.currentTimeMillis() - start;
+        incrementNodeProcessingTime(timeProcessing, context);
+        LOG.debug("VP:mapper:executionTime: " + timeProcessing + " ms.");
         
         if (hasResults) {
+        	context.getCounter(VPCounters.PARTITIONS_WITH_RESULT).increment(1);
             // reducer will receive a list of filenames containing the fragments
             context.write(NullWritable.get(), new Text(partialFilename));
         }
     }
 
-    private void processFragment(String fragment) throws IOException {
+    private void incrementNodeProcessingTime(long timeProcessing, Context context) {
+    	// get name of the node
+		String hostname;
+		try {
+			hostname = InetAddress.getLocalHost().getHostName();
+			// TODO
+			if (hostname.equals("XPS14")) {
+	    		context.getCounter(VPCounters.NODE0_TOTAL_TIME).increment(timeProcessing);
+	    	}			
+			
+		} catch (UnknownHostException e) {
+			LOG.warn("Could not determint node name. Won't log time per node!");
+		}
+	}
+
+	private void processFragment(String fragment) throws IOException {
 
         Query q = Query.getUniqueInstance(true);
         SubQuery sbq = SubQuery.getUniqueInstance(true);

@@ -67,7 +67,9 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         
         long loadingTimestamp = System.currentTimeMillis();
         
-        LOG.debug("VP:reducer:tempDBLoadingTime: " + (loadingTimestamp - startTimestamp) + " ms.");
+        long dbLoadingTime = (loadingTimestamp - startTimestamp);
+        LOG.debug("VP:reducer:tempDBLoadingTime: " + dbLoadingTime + " ms.");
+        context.getCounter(VPCounters.COMPOSING_TIME_TEMP_COLLECTION_CREATION).increment(dbLoadingTime);
         
         // the constructFinalQuery (below) was originally executed using the same context
         // previously used to retrieve a partial result (at the coordinator node). 
@@ -120,8 +122,12 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
        
         long reduceQueryTimestamp = System.currentTimeMillis();
         
-        LOG.debug("VP:reducer:query: " + (reduceQueryTimestamp - repopulateTimestamp) + " ms.");
-
+        long queryExecutionTime = (reduceQueryTimestamp - repopulateTimestamp);
+        LOG.debug("VP:reducer:query: " + queryExecutionTime + " ms.");
+        context.getCounter(VPCounters.COMPOSING_TIME_TEMP_COLLECTION_QUERY_EXEC).increment(queryExecutionTime);
+        
+        context.getCounter(VPCounters.COMPOSING_TIME).increment(dbLoadingTime + queryExecutionTime);
+        
         resultWriter.flush();
         resultWriter.close();
     }

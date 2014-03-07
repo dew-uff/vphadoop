@@ -11,6 +11,7 @@ public class VPConst {
 //	public static final String DB_TYPE = "vphadoop.type";
     public static final String DB_CONFIGFILE_PATH = "vphadoop.confilepath";
     public static final String CATALOG_FILE_PATH = "vphadoop.catalogfile";
+	public static final String SVP_NUM_FRAGMENTS = "vphadoop.numfragments";
     
 //    public static final int DB_TYPE_BASEX = 1;
 //    public static final int DB_TYPE_SEDNA = 2;

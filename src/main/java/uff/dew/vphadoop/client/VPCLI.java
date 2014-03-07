@@ -6,6 +6,9 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import uff.dew.vphadoop.client.runner.HadoopJobRunner;
 import uff.dew.vphadoop.client.runner.JobListener;
 import uff.dew.vphadoop.client.runner.JobRunner;
@@ -17,6 +20,8 @@ import uff.dew.vphadoop.client.runner.JobRunner;
  *
  */
 public class VPCLI {
+	
+    private static final Log LOG = LogFactory.getLog(VPCLI.class);
     
     private static String resultFile;
     private static String jobtrackerHost;
@@ -24,6 +29,7 @@ public class VPCLI {
 	private static int jobtrackerPort;
 	private static int namenodePort;
 	private static String catalogFile;
+	private static int numFragments;
 	
     private static JobRunner job;
     
@@ -51,24 +57,26 @@ public class VPCLI {
         @Override
         public void completed(boolean successful) {
             if (successful) {
+            	LOG.info("Total processing time: " + (System.currentTimeMillis()-startTimestamp) + " ms.");
                 try {
                     saveResult();
                 } catch (IOException e) {
-                    System.out.println("Something went wrong while saving the result: "
+                    LOG.error("Something went wrong while saving the result: "
                             + e.getMessage());
                     System.exit(1);
                 }                
             }
             else {
-                System.out.println("Erro!!");
+                LOG.error("Erro!!");
             }
         }
         
         private void printStatus() {
-            System.out.println("Map: " + mapProgress + "%   Reduce: " + reduceProgress + "%");
+            LOG.info("Map: " + mapProgress + "%   Reduce: " + reduceProgress + "%");
         }
         
     };
+	private static long startTimestamp;
 
     /**
      * The main function for CLI version
@@ -77,9 +85,8 @@ public class VPCLI {
      */
     public static void main(String[] args) {
 
-        if (args.length < 6) {
-            System.out
-                    .println("Usage: java -jar vphadoop.jar "
+        if (args.length < 7) {
+        	LOG.error("Usage: java -jar vphadoop.jar "
                     		+ "<dbconfiguration.xml> " //0
                             + "<query.xq> "            //1
                             + "<output_file> "         //2
@@ -87,14 +94,15 @@ public class VPCLI {
                             + "<jobtrackerport> "      //4
                             + "<namenodehost> "        //5
                             + "<namenodeport> "        //6
-                            + "[<catalog.xml>]");        //7
+                            + "<# fragments>"          //7
+                            + "[<catalog.xml>]");        //8
             System.exit(0);
         }
 
         // configuration file
         File f = new File(args[0]);
         if (!f.exists()) {
-            System.err.println(args[0] + " DB configuration file not found!");
+        	LOG.error(args[0] + " DB configuration file not found!");
             System.exit(1);
         }
 
@@ -104,14 +112,13 @@ public class VPCLI {
             query = readContentFromFile(args[1]);
             verifyQuery(query);
         } catch (FileNotFoundException e) {
-            System.out.println("Query file was not found!");
+        	LOG.error("Query file was not found!");
             System.exit(1);
         } catch (IOException e) {
-            System.out
-                    .println("Something went wrong while reading query file!");
+            LOG.error("Something went wrong while reading query file!");
             System.exit(1);
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            LOG.error(e.getMessage());
             System.exit(1);
         }
         
@@ -119,17 +126,27 @@ public class VPCLI {
             jobtrackerPort = Integer.parseInt(args[4]);        	
             namenodePort = Integer.parseInt(args[6]);
         } catch (NumberFormatException e) {
-        	System.out.println("Ports must be numbers! (" + e.getMessage() + ")");
+        	LOG.error("Ports must be numbers! (" + e.getMessage() + ")");
         	System.exit(1);
         }
+
+        try {
+            numFragments = Integer.parseInt(args[7]);
+        } catch (NumberFormatException e) {
+        	LOG.error("NumFragments must be number! (" + e.getMessage() + ")");
+        	System.exit(1);
+        }
+
+        
         
         resultFile = args[2];
         jobtrackerHost = args[3];
         namenodeHost = args[5];
+        
 
         // has catalog
-        if (args.length == 8) {
-        	catalogFile = args[7];
+        if (args.length == 9) {
+        	catalogFile = args[8];
         }
         else {
         	catalogFile = null;
@@ -139,13 +156,11 @@ public class VPCLI {
         try {
             processQuery(query,args[0]);
         } catch (IOException e) {
-            System.out
-                    .println("Something went wrong while processing the query: "
+        	LOG.error("Something went wrong while processing the query: "
                             + e.getMessage());
             System.exit(1);
         } catch (JobException e) {
-            System.out
-                    .println("Something went wrong while processing the query: "
+        	LOG.error("Something went wrong while processing the query: "
                             + e.getMessage());
             System.exit(1);
         }
@@ -221,10 +236,12 @@ public class VPCLI {
      */
     private static void processQuery(String query, String dbConf) throws IOException, JobException {
         HadoopJobRunner hadoopJob = new HadoopJobRunner(query);
-        hadoopJob.setHadoopConfiguration(jobtrackerHost, jobtrackerPort, namenodeHost, namenodePort);
+        hadoopJob.setHadoopConfiguration(jobtrackerHost, jobtrackerPort, namenodeHost, namenodePort,numFragments);
         hadoopJob.setDbConfiguration(dbConf);
         hadoopJob.setCatalog(catalogFile);
         hadoopJob.addListener(myJobListener);
+        
+        startTimestamp = System.currentTimeMillis();
         
         hadoopJob.runJob();
         

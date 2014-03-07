@@ -7,7 +7,7 @@ import java.util.List;
 import uff.dew.vphadoop.client.JobException;
 
 public abstract class BaseJobRunner implements JobRunner {
-    
+	
     private static final long JOB_STATUS_POLLING_PERIOD = 2000;
 
     protected String xquery;
@@ -29,7 +29,8 @@ public abstract class BaseJobRunner implements JobRunner {
     public void runJob() throws JobException {
         
         try {
-            prepare();
+
+        	prepare();
             
             doRunJob();
             

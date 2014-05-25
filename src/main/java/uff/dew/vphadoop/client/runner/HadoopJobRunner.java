@@ -117,8 +117,8 @@ public class HadoopJobRunner extends BaseJobRunner {
         
     	Configuration conf = new Configuration();
 
-        conf.set("fs.default.name","hdfs://"+jobTrackerHost+":"+jobTrackerPort+"/");
-        conf.set("mapred.job.tracker", namenodeHost + ":" + namenodePort);
+        conf.set("fs.default.name","hdfs://"+namenodeHost+":"+namenodePort+"/");
+        conf.set("mapred.job.tracker", jobTrackerHost + ":" + jobTrackerPort);
         conf.setInt("mapred.task.timeout",0);
         conf.setInt("mapred.tasktracker.map.tasks.maximum", 1);
         conf.setInt(VPConst.SVP_NUM_FRAGMENTS, numFragments);
@@ -168,7 +168,7 @@ public class HadoopJobRunner extends BaseJobRunner {
     private Job setupJob(Configuration conf) throws IOException {
         
         String localJarsDir = "./dist";
-        String hdfsJarsDir = "/user/hduser/libs";
+        String hdfsJarsDir = "/user/gtessarolli/libs";
         FileFilter fileFilter = new FileFilter() {
             @Override
             public boolean accept(File file) {

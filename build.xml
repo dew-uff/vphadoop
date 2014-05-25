@@ -35,6 +35,11 @@
   <pathconvert property="manifest.classpath" pathsep=" " refid="classpath">
     <map from="${lib}/" to=""/>
   </pathconvert>
+
+  <pathconvert property="manifest.classpath2" pathsep=" " refid="classpath">
+    <map from="${lib}/" to=""/>
+    <map from="${hadoop.root}" to="/usr/local/hadoop-1.2.1"/>
+  </pathconvert>
 	
   <target name="init" depends="clean">
     <!-- Create the time stamp -->
@@ -74,6 +79,31 @@
     </copy>
 
   </target>
+
+  <target name="dist-cluster" depends="compile"
+        description="generate the distribution" >
+    <!-- Create the distribution directory -->
+    <mkdir dir="${dist}"/>
+
+    <!-- Put everything in ${build} into the MyProject-${DSTAMP}.jar file -->
+    <jar jarfile="${dist}/vphadoop.jar" basedir="${build}">
+    <!--
+        <zipfileset src="${lib}/basex-xqj-1.2.3.jar" excludes="META-INF/*" />
+        <zipfileset src="${lib}/xqj-api-1.0.jar" excludes="META-INF/*" />
+        <zipfileset src="${lib}/xqj2-0.1.0.jar" excludes="META-INF/*" />
+    -->
+        <manifest>
+                <attribute name="Main-Class" value="uff.dew.vphadoop.client.VPCLI"/>
+                <attribute name="Class-Path" value="${manifest.classpath2}"/>
+        </manifest>
+        </jar>
+
+        <copy todir="${dist}" overwrite="false">
+        <path refid="project-libs"/>
+    </copy>
+
+  </target>
+
 
   <target name="clean"
         description="clean up" >

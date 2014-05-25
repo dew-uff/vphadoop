@@ -47,9 +47,9 @@ public abstract class BaseDatabase implements Database {
         String result = null;
     	if (rs != null) {
             result = rs.getSequenceAsString(null);           
+            rs.getConnection().close();
             rs.close();
         }
-        
         return result;
     }
 }

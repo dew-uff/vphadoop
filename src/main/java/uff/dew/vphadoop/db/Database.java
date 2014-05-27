@@ -85,6 +85,15 @@ public interface Database {
     public int getCardinality(String xpath, String document, String collection);
     
     /**
+     * Function to release all resources used to execute a query.
+     * Need to be called after using executeQuery which returns a 
+     * {@link XQResultSequence} object.
+     * 
+     * @param The {@link XQResultSequence} object obtained when executing the query
+     */
+    public void freeResources(XQResultSequence rs) throws XQException; 
+    
+    /**
      * Return the hostname of the database server
      * 
      * @return The hostname

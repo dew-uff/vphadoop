@@ -139,6 +139,7 @@ public class SubQuery {
                 }
                 out.write(rs.getItemAsString(null).getBytes());
             }
+            db.freeResources(rs);
             // if the query returned anything add the footer
             if (hasResults) {
                 // close partial result constructor element

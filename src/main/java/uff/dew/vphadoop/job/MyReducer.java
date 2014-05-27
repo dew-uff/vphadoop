@@ -106,6 +106,7 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
                     resultWriter.write(item.getBytes());
                     resultWriter.flush();
                 }
+                db.freeResources(rs);
             }
             catch (XQException e) {
                 e.printStackTrace();

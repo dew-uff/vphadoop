@@ -129,7 +129,7 @@ public class BaseXDatabase extends BaseDatabase {
                 XMLStreamReader stream = seq.getItemAsStream();
                 map = parseIndexFacets(stream);                
             }
-            seq.close();
+            freeResources(seq);
         } catch (XQException e) {
         	LOG.error("Error creating catalog! + " + e.getMessage());
         } catch (XMLStreamException e) {

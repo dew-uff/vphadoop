@@ -5,6 +5,7 @@ import java.util.HashMap;
 import javax.xml.xquery.XQConnection;
 import javax.xml.xquery.XQDataSource;
 import javax.xml.xquery.XQException;
+import javax.xml.xquery.XQExpression;
 import javax.xml.xquery.XQPreparedExpression;
 import javax.xml.xquery.XQResultSequence;
 
@@ -13,23 +14,26 @@ import org.apache.commons.logging.LogFactory;
 
 public abstract class BaseDatabase implements Database {
 	
-	private class QueryExecution {
-		private String query;
-		private XQConnection conn;
-		private XQPreparedExpression prepExp;
-		private XQResultSequence rs;
+	private class ExecutionContext {
+		private XQPreparedExpression prepExp = null;
+		private XQExpression exp = null;
+		private XQResultSequence rs = null;
+		private boolean closeSession = true;
 		
-		public QueryExecution(String query) {
-			this.query = query;
-		}
-		
-		public XQResultSequence executeQuery() throws XQException {
-			conn = dataSource.getConnection();
+		public XQResultSequence executeQuery(String query) throws XQException {
+			closeSession = openSession();
 			prepExp = conn.prepareExpression(query);
 			rs = prepExp.executeQuery();
 			
 			return rs;
 		}
+
+		public void executeCommand(String command) throws XQException {
+			closeSession = openSession();
+			exp = conn.createExpression();
+			exp.executeCommand(command);
+		}
+
 		
 		public void close() throws XQException {
 			if (rs != null) {
@@ -38,34 +42,45 @@ public abstract class BaseDatabase implements Database {
 			if (prepExp != null) {
 				prepExp.close();
 			}
-			if (conn != null) {
-				conn.close();
+			if (exp != null) {
+				exp.close();
+			}
+			if (closeSession) {
+				closeSession();
 			}
 		}
 	}
-	
-	private HashMap<XQResultSequence, QueryExecution> queriesInExecution = new HashMap<XQResultSequence,QueryExecution>();
 	
 	private static Log LOG = LogFactory.getLog(BaseDatabase.class);
     
     protected XQDataSource dataSource;
     protected String databaseName;
-    
-    public String getDatabaseName() {
-        return databaseName;
-    }
+	private HashMap<XQResultSequence, ExecutionContext> queriesInExecution = new HashMap<XQResultSequence,ExecutionContext>();
+	private XQConnection conn;
 
-    public void setDatabaseName(String name) {
-        this.databaseName = name;
-    }
-
+	protected boolean openSession() throws XQException {
+		if (conn == null) {
+			LOG.debug("openSession");
+			conn = dataSource.getConnection();
+			return true;
+		}
+		return false;
+	}
+	
+	protected void closeSession() throws XQException {
+		LOG.debug("closeSession");
+		conn.close();
+		conn = null;
+	}
+	
     public XQResultSequence executeQuery(String query) throws XQException {
-    	LOG.debug("Query: " + query);
+    	LOG.debug("executeQuery: " + query);
     	long start = System.currentTimeMillis();
-    	QueryExecution qe = new QueryExecution(query);
-    	XQResultSequence result = qe.executeQuery();
+    	
+    	ExecutionContext qe = new ExecutionContext();
+    	XQResultSequence result = qe.executeQuery(query);
     	queriesInExecution.put(result, qe);
-    	LOG.debug("Query id: " + result);
+    	LOG.debug("QueryContext: " + result.hashCode());
     	LOG.debug("Query execution time: " + (System.currentTimeMillis() - start) + "ms");
         return result;
     }
@@ -76,15 +91,20 @@ public abstract class BaseDatabase implements Database {
         freeResources(rs);
 		return result;
     }
-    
-    protected XQConnection getConnection() throws XQException {
-        return dataSource.getConnection();
+	
+    protected void executeCommand(String command) throws XQException {
+        LOG.debug("command: " + command);
+        long start = System.currentTimeMillis();
+        ExecutionContext ec = new ExecutionContext();
+        ec.executeCommand(command);
+        ec.close();
+        LOG.debug("Command execution time: " + (System.currentTimeMillis() - start) + " ms.");
     }
     
     public void freeResources(XQResultSequence rs) throws XQException {
-    	QueryExecution qe = queriesInExecution.remove(rs);
+    	ExecutionContext qe = queriesInExecution.remove(rs);
     	if (qe != null) {
-    		LOG.debug("Freeing resouces for query id: " + rs);
+    		LOG.debug("Freeing resouces for QueryContext: " + rs.hashCode());
     		qe.close();
     	}
     }
@@ -96,5 +116,13 @@ public abstract class BaseDatabase implements Database {
             result = rs.getSequenceAsString(null);           
         }
         return result;
+    }
+    
+    public String getDatabaseName() {
+        return databaseName;
+    }
+
+    public void setDatabaseName(String name) {
+        this.databaseName = name;
     }
 }

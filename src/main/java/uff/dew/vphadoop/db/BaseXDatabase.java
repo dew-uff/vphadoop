@@ -6,9 +6,7 @@ import java.util.Map;
 
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
-import javax.xml.xquery.XQConnection;
 import javax.xml.xquery.XQException;
-import javax.xml.xquery.XQExpression;
 import javax.xml.xquery.XQResultSequence;
 
 import net.xqj.basex.BaseXXQDataSource;
@@ -52,17 +50,6 @@ public class BaseXDatabase extends BaseDatabase {
         
     }
     
-    private void executeCommand(String command) throws XQException {
-    	LOG.debug("Command: " + command);
-    	long start = System.currentTimeMillis();
-        XQConnection conn = getConnection();
-        XQExpression exp = conn.createExpression();
-        exp.executeCommand(command);
-        LOG.debug("Command execution time: " + (System.currentTimeMillis() - start) + " ms.");
-        exp.close();
-        conn.close();
-    }
-
     @Override
     public int getCardinality(String xpath, String document, String collection) {
         

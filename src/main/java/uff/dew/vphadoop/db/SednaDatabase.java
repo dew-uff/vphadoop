@@ -22,7 +22,8 @@ public class SednaDatabase extends BaseDatabase {
     private static final Log LOG = LogFactory.getLog(SednaDatabase.class);
 
     public SednaDatabase(String host, int port, String username, String password, String database) throws IOException {
-        SednaXQDataSource sednaDataSource = new SednaXQDataSource();
+        
+    	SednaXQDataSource sednaDataSource = new SednaXQDataSource();
 
         sednaDataSource.setServerName(host);
         sednaDataSource.setPort(port);
@@ -35,9 +36,13 @@ public class SednaDatabase extends BaseDatabase {
     
     @Override
     public void deleteCollection(String collectionName) throws XQException {
-        if (existsCollection(collectionName)) {
+        boolean shouldCloseSession = openSession();
+    	if (existsCollection(collectionName)) {
             executeCommand("DROP COLLECTION '" + collectionName + "'");
         }
+    	if (shouldCloseSession) {
+    		closeSession();
+    	}
     }
 
     @Override
@@ -48,6 +53,7 @@ public class SednaDatabase extends BaseDatabase {
     @Override
     public void createCollectionWithContent(String collectionName, String dirPath) 
             throws XQException {
+    	boolean shouldCloseSession = openSession();
         createCollection(collectionName);
         File dir = new File(dirPath);
         File[] files = dir.listFiles(new FileFilter() {
@@ -62,17 +68,9 @@ public class SednaDatabase extends BaseDatabase {
         for(File file: files) {
             loadFileInCollection(collectionName, file.getAbsolutePath());
         }
-    }
-    
-    private void executeCommand(String command) throws XQException {
-        LOG.debug("command: " + command);
-        long start = System.currentTimeMillis();
-        XQConnection conn = getConnection();
-        XQExpression exp = conn.createExpression();
-        exp.executeCommand(command);
-        LOG.debug("Command execution time: " + (System.currentTimeMillis() - start) + " ms.");
-        exp.close();
-        conn.close();
+        if (shouldCloseSession) {
+        	closeSession();
+        }
     }
     
     @Override

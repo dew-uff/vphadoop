@@ -55,8 +55,15 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
         // if it doesn't have results, delete the partial file
         if (!hasResults) {
             fs.delete(partialPath, false);
+        } else {
+        	if (!fs.exists(new Path("hack2.txt"))) {
+	        	//TODO hack
+	        	OutputStream os = fs.create(new Path("hack2.txt"));
+	        	os.write(SubQuery.getUniqueInstance(true).getElementAfterConstructor().getBytes());
+	        	os.close();
+        	}
         }
-
+        
         long timeProcessing = System.currentTimeMillis() - start;
         incrementNodeProcessingTime(timeProcessing, context);
         LOG.debug("VP:mapper:executionTime: " + timeProcessing + " ms.");

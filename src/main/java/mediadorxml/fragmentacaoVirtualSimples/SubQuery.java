@@ -124,7 +124,8 @@ public class SubQuery {
             
             boolean addheader = true;
             while (rs.next()) {
-                if (addheader) {
+                String item = rs.getItemAsString(null);
+            	if (addheader) {
                     hasResults = true;
                     // write XML header
                     out.write(getTitle().getBytes());
@@ -136,8 +137,14 @@ public class SubQuery {
                     String header = sbq.getConstructorElement() + "\r\n";
                     out.write(header.getBytes());
                     addheader = false;
+                    
+                    //TODO hack
+                    String element = item.substring(item.lastIndexOf("</"), item.lastIndexOf(">")+1);
+                    element = element.replace("</", "<");
+                    sbq.setElementAfterConstructor(element);
                 }
-                out.write(rs.getItemAsString(null).getBytes());
+                out.write(item.getBytes());
+                out.write("\r\n".getBytes());
             }
             db.freeResources(rs);
             // if the query returned anything add the footer
@@ -147,7 +154,7 @@ public class SubQuery {
                 out.write(footer.getBytes());
 
                 if (!q.isOrderByClause()) { // se a consulta original nao possui order by adicione o elemento idOrdem
-                    String partialOrderElement = "<idOrdem>" + getIntervalBeginning(xquery) + "</idOrdem>";
+                    String partialOrderElement = "<idOrdem>" + getIntervalBeginning(xquery) + "</idOrdem>\r\n";
                     out.write(partialOrderElement.getBytes());
                 }
 

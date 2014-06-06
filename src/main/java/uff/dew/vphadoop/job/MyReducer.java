@@ -2,13 +2,11 @@ package uff.dew.vphadoop.job;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileFilter;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.util.Properties;
 import java.util.Set;
 
 import javax.xml.xquery.XQException;
@@ -36,9 +34,6 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
     
     private static final String TEMP_COLLECTION_NAME = "tmpResultadosParciais";
     
-    // HACK
-    private String retorno = "";
-    
     public MyReducer() {
 
     }
@@ -47,26 +42,22 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
     protected void reduce(NullWritable key, Iterable<Text> values,
             Context context)
             throws IOException, InterruptedException {
+
+        long startTimestamp = System.currentTimeMillis();
         
-        // put every partial result in a temp collection at the database
+		// construct db object from configuration file 
         Configuration conf = context.getConfiguration();
-        
-		String configFilePath = conf.get(VPConst.DB_CONFIGFILE_PATH);
-		
 		FileSystem fs = FileSystem.get(conf);
-		
+        String configFilePath = conf.get(VPConst.DB_CONFIGFILE_PATH);
 		InputStream is = fs.open(new Path(configFilePath));
 		DatabaseFactory.produceSingletonDatabaseObject(is);
 		is.close();
-		
         Database db = DatabaseFactory.getSingletonDatabaseObject();
         
-        long startTimestamp = System.currentTimeMillis();
-        
+        // put every partial result in a temp collection at the database
         loadPartialsIntoDatabase(db, values, context);
         
         long loadingTimestamp = System.currentTimeMillis();
-        
         long dbLoadingTime = (loadingTimestamp - startTimestamp);
         LOG.debug("VP:reducer:tempDBLoadingTime: " + dbLoadingTime + " ms.");
         context.getCounter(VPCounters.COMPOSING_TIME_TEMP_COLLECTION_CREATION).increment(dbLoadingTime);
@@ -86,41 +77,33 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         Path path = new Path("result.xml");
         OutputStream resultWriter = fs.create(path);
 
-        // if retorno contains just the constructor, means that all the partial results were 
-        // empty, so we don't have to run the query.
-        if (retorno.lastIndexOf('<') != 0) {
+        // construct the query to get the result from the temp collection
+        String finalQuery = constructFinalQuery();
+        LOG.debug("Final Query: " + finalQuery);
         
-            // construct the query to get the result from the temp collection
-            String finalQuery = constructFinalQuery();
-            LOG.debug("Final Query: " + finalQuery);
-            
-            // execute the final query
+        // execute the final query
 
-            String header = sbq.getConstructorElement() + "\r\n";
-            resultWriter.write(header.getBytes());
-            
-            try {
-                XQResultSequence rs = db.executeQuery(finalQuery);
-                while (rs.next()) {
-                    String item = rs.getItemAsString(null);
-                    resultWriter.write(item.getBytes());
-                    resultWriter.flush();
-                }
-                db.freeResources(rs);
+        String header = sbq.getConstructorElement() + "\r\n";
+        resultWriter.write(header.getBytes());
+        
+        try {
+            XQResultSequence rs = db.executeQuery(finalQuery);
+            while (rs.next()) {
+                String item = rs.getItemAsString(null);
+                resultWriter.write(item.getBytes());
+                resultWriter.write("\r\n".getBytes());
+                resultWriter.flush();
             }
-            catch (XQException e) {
-                e.printStackTrace();
-                throw new IOException(e);
-            }
-            
-            String footer = sbq.getConstructorElement().replace("<", "</");
-            resultWriter.write(footer.getBytes());
-            
-        } else {
-            // if retorno contains only the the element constructor then that's the result
-            resultWriter.write(retorno.getBytes());
+            db.freeResources(rs);
         }
-       
+        catch (XQException e) {
+            e.printStackTrace();
+            throw new IOException(e);
+        }
+        
+        String footer = sbq.getConstructorElement().replace("<", "</");
+        resultWriter.write(footer.getBytes());
+            
         long reduceQueryTimestamp = System.currentTimeMillis();
         
         long queryExecutionTime = (reduceQueryTimestamp - repopulateTimestamp);
@@ -133,7 +116,7 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         resultWriter.close();
     }
     
-    // HACK
+    // TODO HACK
     private void repopulateQueryAndSubQueryObjects(Configuration conf) throws IOException {
 
         String query = "";
@@ -156,11 +139,13 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
                 if (line.toUpperCase().contains("<ORDERBY>")){
                     String orderByClause = line.substring(line.indexOf("<ORDERBY>")+"<ORDERBY>".length(), line.indexOf("</ORDERBY>"));
                     q.setOrderBy(orderByClause);
+                    LOG.debug("hack! order by: " + q.getOrderBy());
                 }
                 
                 if (line.toUpperCase().contains("<ORDERBYTYPE>")){
                     String orderByType= line.substring(line.indexOf("<ORDERBYTYPE>")+"<ORDERBYTYPE>".length(), line.indexOf("</ORDERBYTYPE>"));                         
                     q.setOrderByType(orderByType);
+                    LOG.debug("hack! order by type: " + q.getOrderByType());
                 }
                 
                 if (line.toUpperCase().contains("<AGRFUNC>")){ // soma 1 para excluir a tralha contida apos a tag <AGRFUNC>
@@ -179,6 +164,7 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
                                 if (hashParts!=null) {
                     
                                     q.setAggregateFunc(hashParts[0], hashParts[1]); // o par CHAVE, VALOR
+                                    LOG.debug("hack! aggr function: " + hashParts[0] + ":" + hashParts[1]);
                                 }
                             }
                             
@@ -187,29 +173,31 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
                 }                       
             }
         }
+        buff.close();
+        reader.close();
+        file.close();
         
-        if (retorno.lastIndexOf('<') != 0) {
-            // means that at least one partial result got anything more than just the constructor
-            
-            if (retorno.indexOf("<idOrdem>") != -1 )
-                retorno = retorno.substring(retorno.indexOf("<partialResult>")+"<partialResult>".length(), retorno.indexOf("<idOrdem>"));
-            else
-                retorno = retorno.substring(retorno.indexOf("<partialResult>")+"<partialResult>".length(), retorno.indexOf("</partialResult>"));
-            
-            sbq.setConstructorElement(SubQuery.getConstructorElement(retorno)); // Usado para a composicao do resultado final.
-            
-            //String intervalBeginning = SubQuery.getIntervalBeginning(xquery);
-            
-            if ( sbq.getElementAfterConstructor().equals("") ) {
-                sbq.setElementAfterConstructor(SubQuery.getElementAfterConstructorElement(retorno, sbq.getConstructorElement()));
-            }
-            
-            if (sbq.isUpdateOrderClause()) {
-                SubQuery.getElementsAroundOrderByElement(query, sbq.getElementAfterConstructor());
-            }
-        } else {
-            sbq.setConstructorElement(SubQuery.getConstructorElement(retorno)); // setting just the constructor element to
-        }
+        LOG.debug("hack! query: " + query);
+
+        sbq.setConstructorElement(SubQuery.getConstructorElement(query));
+
+        LOG.debug("hack! constructor element: " + sbq.getConstructorElement());
+        
+        //TODO hack
+        InputStream filehack = fs.open(new Path("hack2.txt"));
+        InputStreamReader readerhack = new InputStreamReader(filehack);
+        BufferedReader buffhack = new BufferedReader(readerhack);
+        
+        String elementAfterConstructor = buffhack.readLine();
+        sbq.setElementAfterConstructor(elementAfterConstructor);
+        
+        LOG.debug("hack! element after constructor: " + sbq.getElementAfterConstructor());
+        
+        buffhack.close();
+        readerhack.close();
+        filehack.close();
+        
+        SubQuery.getElementsAroundOrderByElement(query, sbq.getElementAfterConstructor());
     }
 
     private void loadPartialsIntoDatabase(Database db, Iterable<Text> values, Context context) throws IOException {
@@ -224,7 +212,6 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
             }
 
             if (tempDir.list().length > 0) {
-                hackSetRetornoVariable(tempDir);
                 db.createCollectionWithContent(TEMP_COLLECTION_NAME, tempDir.getAbsolutePath());
             }
             
@@ -236,58 +223,6 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         }
     }
     
-    private void hackSetRetornoVariable(File dir) {
-        File[] partials = dir.listFiles(new FileFilter() {
-            
-            @Override
-            public boolean accept(File file) {
-                if (file.getName().endsWith(".xml")){
-                    return true;
-                } else {
-                    return false;
-                }
-            }
-        });
-        
-        for (File f : partials) {
-            try {
-                String temp = readFileContent(f.getAbsolutePath());
-                if (retorno.length() == 0 || 
-                        (retorno.lastIndexOf('<') == 0 && temp.lastIndexOf('<') != 0)) {
-                    retorno = temp;
-                }
-                if (retorno.lastIndexOf('<') != 0) {
-                    break;
-                }
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    private static String readFileContent(String filename) throws FileNotFoundException, IOException {
-        
-        BufferedReader br = new BufferedReader(new FileReader(filename));
-        String everything = null;
-        try {
-            StringBuilder sb = new StringBuilder();
-            String line = br.readLine();
-
-            while (line != null) {
-                sb.append(line);
-                sb.append('\n');
-                line = br.readLine();
-            }
-            everything = sb.toString().trim();
-        } finally {
-            br.close();
-        }
-        
-        return everything;
-    }
-
     /**
      * From FinalResult.getFinalResult (adapted)
      * 
@@ -500,6 +435,7 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
                 }
 
                 if (!subOrder.equals("")) {
+                	subOrder = sbq.getElementAfterConstructor().replaceAll("[</>]", "") + "/" + subOrder;
                     orderByClause = orderByClause
                             + (orderByClause.equals("") ? "" : ", ")
                             + variableName + "/" + subOrder;

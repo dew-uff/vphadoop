@@ -80,6 +80,10 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         
         //TODO HACK
         FileSystem fs = FileSystem.get(conf);
+        Path hack2 = new Path("hack2.txt");
+        if (fs.exists(hack2)) {
+        	fs.delete(hack2, false);
+        }
         OutputStream hack = fs.create(new Path("hack.txt"));
         hack.write(queries[0].getBytes());
         hack.close();

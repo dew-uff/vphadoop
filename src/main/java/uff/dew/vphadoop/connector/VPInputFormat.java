@@ -57,6 +57,7 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         long start = System.currentTimeMillis();
         
         try {
+        	// to mimic PartiX-VP flow.
             svpPressed();
         } 
         catch (Exception e) {
@@ -106,15 +107,6 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         if ( docQueries!=null && docQueries.size() > 0 ){ // é diferente de null, quando consulta de entrada for sobre uma coleção
             
             docQueriesWithoutFragmentation = docQueries;                                
-            
-            String subQueries = "";
-            int i = 1;
-            
-            // Exibe na tela a esquerda as sub-consultas geradas para o usuário.  
-            for (String docQry : docQueries) {
-                subQueries = subQueries + i + "=\r\n" + docQry + "\r\n";                                                                
-                i++;
-            }
         }
         else if (q.getqueryExprType()!=null && q.getqueryExprType().equals("document")) { // consulta de entrada sobre um documento. 
             q.setInputQuery(inputQuery);

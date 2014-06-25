@@ -360,6 +360,15 @@ public class SubQuery {
 		return elementAfterConstructorElement;
 	}
 	
+    public static String getElementAfterConstructor(String query) {
+    	int returnPos = query.indexOf("return");
+    	String aux = query.substring(returnPos).trim();
+    	int gtPos = aux.indexOf('<');
+    	int ltPos = aux.indexOf('>');
+    	return aux.substring(gtPos, ltPos+1);
+	}
+	
+	
 	/***
 	 * Retorna os elementos em torno dos elementos especificados no order by.
 	 * Ex.: <results> {

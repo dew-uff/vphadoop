@@ -44,6 +44,10 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
         // need to process it to extract the subquery
         processFragment(fragment);
         
+        if (subquery.indexOf("order by") != -1) {
+        	insertOrderByElementInSubQuery();
+        }
+        
         // execute query, saving result to a partial file in hdfs
         FileSystem fs = FileSystem.get(context.getConfiguration());
         String partialFilename = PARTIALS_DIR + "/partial_" + key.toString() + ".xml";
@@ -55,13 +59,6 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
         // if it doesn't have results, delete the partial file
         if (!hasResults) {
             fs.delete(partialPath, false);
-        } else {
-        	if (!fs.exists(new Path("hack2.txt"))) {
-	        	//TODO hack
-	        	OutputStream os = fs.create(new Path("hack2.txt"));
-	        	os.write(SubQuery.getUniqueInstance(true).getElementAfterConstructor().getBytes());
-	        	os.close();
-        	}
         }
         
         long timeProcessing = System.currentTimeMillis() - start;
@@ -75,7 +72,47 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
         }
     }
 
-    private void incrementNodeProcessingTime(long timeProcessing, Context context) {
+    private void insertOrderByElementInSubQuery() {
+    	String orderByElement = getOrderByElementFromQuery(subquery);
+    	LOG.debug("VP:mapper:insertOrderBy:order by:" + orderByElement);    	
+		
+    	String beginElement = SubQuery.getElementAfterConstructor(subquery); // <element>
+    	String endElement = beginElement.replace("<", "</");
+    	
+    	int beginInsertPos = subquery.indexOf(beginElement);
+    	int endInsertPos = subquery.indexOf(endElement)+endElement.length();
+    	
+    	String wholeElement = subquery.substring(beginInsertPos,endInsertPos);
+    	
+    	subquery = subquery.substring(0,beginInsertPos) + "\r\n"
+    			+ "<orderby>"
+    			+ "<key>{"+orderByElement+"}</key>\r\n"
+    			+ "<element>" + wholeElement + "</element>\r\n"
+    			+ "</orderby>" +
+    			subquery.substring(endInsertPos);
+    	
+    	LOG.debug("VP:mapper:insertOrderBy:subquery: " + subquery);
+	}
+
+	private static String getOrderByElementFromQuery(String query) {
+    	String orderBy = query;
+		int orderByPos = orderBy.indexOf("order by") + "order by".length();
+		orderBy = orderBy.substring(orderByPos).trim();
+		int returnPos = orderBy.indexOf("return");
+    	orderBy = orderBy.substring(0, returnPos).trim();
+    	
+    	if (orderBy.indexOf("ascending") != -1) {
+    		int ascPos = orderBy.indexOf("ascending");
+    		orderBy = orderBy.substring(0,ascPos).trim();
+    	} else if (orderBy.indexOf("descending") != -1) {
+    		int descPos = orderBy.indexOf("descending");
+    		orderBy = orderBy.substring(0,descPos).trim();    		
+    	}
+    	
+    	return orderBy;
+	}
+
+	private void incrementNodeProcessingTime(long timeProcessing, Context context) {
     	// get name of the node
 		String hostname;
 		try {

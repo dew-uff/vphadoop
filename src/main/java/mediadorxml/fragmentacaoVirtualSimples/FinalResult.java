@@ -115,18 +115,24 @@ public class FinalResult {
 				}
 				
 				if ( !subOrder.equals("") ) {
-					orderByClause = orderByClause + (orderByClause.equals("")?"": ", ") + variableName + "/" + subOrder;
+					orderByClause = orderByClause + (orderByClause.equals("")?"": ", ") + variableName + "/key/" + subOrder;
 				}
 			}
 
+//			finalResultXquery = sbq.getConstructorElement() + " { \r\n " 
+//			  + " for $ret in collection('tmpResultadosParciais')/partialResult/" 
+//			  + sbq.getConstructorElement().replaceAll("[</>]", "") + "/" + sbq.getElementAfterConstructor().replaceAll("[</>]", "")					          
+//	          + "\r\n order by " + orderByClause + (q.getOrderByType()!=null && !q.getOrderByType().equals("")? " " + q.getOrderByType(): " ascending")
+//	          + "\r\n return $ret"
+//	          + "\r\n } "
+//	          + sbq.getConstructorElement().replace("<", "</");  
 			finalResultXquery = sbq.getConstructorElement() + " { \r\n " 
-			  + " for $ret in collection('tmpResultadosParciais')/partialResult/" 
-			  + sbq.getConstructorElement().replaceAll("[</>]", "") + "/" + sbq.getElementAfterConstructor().replaceAll("[</>]", "")					          
-	          + "\r\n order by " + orderByClause + (q.getOrderByType()!=null && !q.getOrderByType().equals("")? " " + q.getOrderByType(): " ascending")
-	          + "\r\n return $ret"
-	          + "\r\n } "
-	          + sbq.getConstructorElement().replace("<", "</");  
-		
+					  + " for $ret in collection('tmpResultadosParciais')/partialResult/orderby/" 
+					  + sbq.getConstructorElement().replaceAll("[</>]", "") + "/" + sbq.getElementAfterConstructor().replaceAll("[</>]", "")					          
+			          + "\r\n order by " + orderByClause + (q.getOrderByType()!=null && !q.getOrderByType().equals("")? " " + q.getOrderByType(): " ascending")
+			          + "\r\n return $ret/element"
+			          + "\r\n } "
+			          + sbq.getConstructorElement().replace("<", "</");  		
 		}
 		else { // se a consulta original nao possui order by, acrescentar na consulta final a ordenacao de acordo com a ordem dos elementos nos documentos pesquisados.
 			orderByClause = "$ret/idOrdem";

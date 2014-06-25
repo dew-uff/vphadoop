@@ -180,29 +180,15 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         LOG.debug("hack! query: " + query);
 
         sbq.setConstructorElement(SubQuery.getConstructorElement(query));
+        sbq.setElementAfterConstructor(SubQuery.getElementAfterConstructor(query));
 
         LOG.debug("hack! constructor element: " + sbq.getConstructorElement());
-        
-        //TODO hack
-        InputStream filehack = fs.open(new Path("hack2.txt"));
-        InputStreamReader readerhack = new InputStreamReader(filehack);
-        BufferedReader buffhack = new BufferedReader(readerhack);
-        
-        String elementAfterConstructor = buffhack.readLine();
-        sbq.setElementAfterConstructor(elementAfterConstructor);
-        
         LOG.debug("hack! element after constructor: " + sbq.getElementAfterConstructor());
-        
-        buffhack.close();
-        readerhack.close();
-        filehack.close();
-        
-        SubQuery.getElementsAroundOrderByElement(query, sbq.getElementAfterConstructor());
     }
 
     private void loadPartialsIntoDatabase(Database db, Iterable<Text> values, Context context) throws IOException {
         try {
-            db.deleteCollection(TEMP_COLLECTION_NAME);
+            //db.deleteCollection(TEMP_COLLECTION_NAME);
             File tempDir = createTempDirectory();
             FileSystem fs = FileSystem.get(context.getConfiguration());
             int count = 0;
@@ -435,18 +421,16 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
                 }
 
                 if (!subOrder.equals("")) {
-                	subOrder = sbq.getElementAfterConstructor().replaceAll("[</>]", "") + "/" + subOrder;
-                    orderByClause = orderByClause
-                            + (orderByClause.equals("") ? "" : ", ")
-                            + variableName + "/" + subOrder;
+                	orderByClause = orderByClause + (orderByClause.equals("")?"": ", ") + variableName + "/key/" + subOrder;
                 }
             }
 
             finalResultXquery = 
                     " for $ret in collection('"+TEMP_COLLECTION_NAME+"')/partialResult/"
                     + sbq.getConstructorElement().replaceAll("[</>]", "") + "/"
-                    + sbq.getElementAfterConstructor().replaceAll("[</>]", "")
-                    + " order by " + orderByClause + " return $ret" 
+                    + "orderby"
+                    + " order by " + orderByClause + " return $ret/element/" 
+                    + sbq.getElementAfterConstructor().replaceAll("[</>]", "") 
                     ;
 
             // System.out.println("finalresult.java:"+ finalResultXquery);

@@ -68,6 +68,7 @@ public class VPCLI {
             }
             else {
                 LOG.error("Erro!!");
+                System.exit(1);
             }
         }
         

@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.util.Properties;
 import java.util.Set;
 
 import javax.xml.xquery.XQException;
@@ -107,9 +106,8 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         long reduceQueryTimestamp = System.currentTimeMillis();
         
         long queryExecutionTime = (reduceQueryTimestamp - repopulateTimestamp);
-        LOG.debug("VP:reducer:query: " + queryExecutionTime + " ms.");
+        LOG.debug("VP:reducer:query execution total time: " + queryExecutionTime + " ms.");
         context.getCounter(VPCounters.COMPOSING_TIME_TEMP_COLLECTION_QUERY_EXEC).increment(queryExecutionTime);
-        
         context.getCounter(VPCounters.COMPOSING_TIME).increment(dbLoadingTime + queryExecutionTime);
         
         resultWriter.flush();
@@ -188,6 +186,8 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
 
     private void loadPartialsIntoDatabase(Database db, Iterable<Text> values, Context context) throws IOException {
         try {
+        	
+        	long timestamp = System.currentTimeMillis();
             //db.deleteCollection(TEMP_COLLECTION_NAME);
             File tempDir = createTempDirectory();
             FileSystem fs = FileSystem.get(context.getConfiguration());
@@ -196,12 +196,20 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
                 String localFilename = tempDir.getAbsolutePath()+"/partial_"+ count++ +".xml";
                 fs.copyToLocalFile(new Path(filename.toString()), new Path(localFilename));
             }
-
+            LOG.debug("loadPartialsIntoDb:time to copy from hdfs to local: " + (System.currentTimeMillis() - timestamp) + " ms.");
+            timestamp = System.currentTimeMillis();
+            
             if (tempDir.list().length > 0) {
                 db.createCollectionWithContent(TEMP_COLLECTION_NAME, tempDir.getAbsolutePath());
             }
-            
+
+            LOG.debug("loadPartialsIntoDb:time to create temp collection: " + (System.currentTimeMillis() - timestamp) + " ms.");
+            timestamp = System.currentTimeMillis();
+
             deleteTempDirectory(tempDir);
+
+            LOG.debug("loadPartialsIntoDb:time to delete temp local files: " + (System.currentTimeMillis() - timestamp) + " ms.");
+            timestamp = System.currentTimeMillis();
             
         } catch (XQException e) {
             e.printStackTrace();
@@ -459,7 +467,7 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
     private static File createTempDirectory() throws IOException {
         final File temp;
 
-        temp = File.createTempFile("temp", Long.toString(System.nanoTime()));
+        temp = File.createTempFile("temp", Long.toString(System.nanoTime()), new File("/tmp"));
 
         if(!(temp.delete()))
         {

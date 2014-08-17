@@ -5,21 +5,13 @@ import java.io.FileFilter;
 import java.io.IOException;
 import java.util.Map;
 
-import javax.xml.xquery.XQConnection;
 import javax.xml.xquery.XQException;
-import javax.xml.xquery.XQExpression;
 
 import net.xqj.basex.BaseXXQDataSource;
 import net.xqj.sedna.SednaXQDataSource;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 import uff.dew.vphadoop.catalog.Element;
 
 public class SednaDatabase extends BaseDatabase {
-    
-    private static final Log LOG = LogFactory.getLog(SednaDatabase.class);
 
     public SednaDatabase(String host, int port, String username, String password, String database) throws IOException {
         

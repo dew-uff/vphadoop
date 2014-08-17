@@ -50,7 +50,7 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
         
         // execute query, saving result to a partial file in hdfs
         FileSystem fs = FileSystem.get(context.getConfiguration());
-        String partialFilename = PARTIALS_DIR + "/partial_" + key.toString() + ".xml";
+        String partialFilename = PARTIALS_DIR + "/partial_" + key.toString() + "_" + context.getTaskAttemptID() + ".xml";
         Path partialPath = new Path(partialFilename);
         OutputStream partialFile = fs.create(partialPath);
         boolean hasResults = SubQuery.executeSubQuery(subquery, partialFile);

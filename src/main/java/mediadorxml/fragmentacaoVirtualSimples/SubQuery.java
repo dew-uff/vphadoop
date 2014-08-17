@@ -15,7 +15,6 @@ import mediadorxml.catalog.CatalogManager;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import uff.dew.vphadoop.catalog.Catalog;
 import uff.dew.vphadoop.db.Database;
 import uff.dew.vphadoop.db.DatabaseFactory;
 
@@ -152,6 +151,7 @@ public class SubQuery {
                 // close partial result constructor element
                 String footer = sbq.getConstructorElement().replace("<", "</");
                 out.write(footer.getBytes());
+                out.write("\r\n".getBytes());
 
                 if (!q.isOrderByClause()) { // se a consulta original nao possui order by adicione o elemento idOrdem
                     String partialOrderElement = "<idOrdem>" + getIntervalBeginning(xquery) + "</idOrdem>\r\n";
@@ -159,7 +159,9 @@ public class SubQuery {
                 }
 
                 // write partial result root ending element
-                out.write("</partialResult>".getBytes());
+                out.write("</partialResult>\r\n".getBytes());
+                // forces output of all data before returning
+                out.flush();
             }
         }
         catch (XQException e) {

@@ -30,6 +30,7 @@ public class VPCLI {
 	private static int namenodePort;
 	private static String catalogFile;
 	private static int numFragments;
+	private static int maxTasksPerNode;
 	
     private static JobRunner job;
     
@@ -86,7 +87,7 @@ public class VPCLI {
      */
     public static void main(String[] args) {
 
-        if (args.length < 7) {
+        if (args.length < 9) {
         	LOG.error("Usage: java -jar vphadoop.jar "
                     		+ "<dbconfiguration.xml> " //0
                             + "<query.xq> "            //1
@@ -96,7 +97,8 @@ public class VPCLI {
                             + "<namenodehost> "        //5
                             + "<namenodeport> "        //6
                             + "<# fragments>"          //7
-                            + "[<catalog.xml>]");        //8
+                            + "<maxtaskspernode>"      //8
+                            + "[<catalog.xml>]");      //9
             System.exit(0);
         }
 
@@ -138,16 +140,22 @@ public class VPCLI {
         	System.exit(1);
         }
 
-        
+        try {
+            maxTasksPerNode = Integer.parseInt(args[8]);
+        } catch (NumberFormatException e) {
+        	LOG.error("maxTasksPerNode must be number! (" + e.getMessage() + ")");
+        	System.exit(1);
+        } 
         
         resultFile = args[2];
         jobtrackerHost = args[3];
         namenodeHost = args[5];
         
+        
 
         // has catalog
-        if (args.length == 9) {
-        	catalogFile = args[8];
+        if (args.length == 10) {
+        	catalogFile = args[9];
         }
         else {
         	catalogFile = null;
@@ -237,7 +245,7 @@ public class VPCLI {
      */
     private static void processQuery(String query, String dbConf) throws IOException, JobException {
         HadoopJobRunner hadoopJob = new HadoopJobRunner(query);
-        hadoopJob.setHadoopConfiguration(jobtrackerHost, jobtrackerPort, namenodeHost, namenodePort,numFragments);
+        hadoopJob.setHadoopConfiguration(jobtrackerHost, jobtrackerPort, namenodeHost, namenodePort, numFragments, maxTasksPerNode);
         hadoopJob.setDbConfiguration(dbConf);
         hadoopJob.setCatalog(catalogFile);
         hadoopJob.addListener(myJobListener);

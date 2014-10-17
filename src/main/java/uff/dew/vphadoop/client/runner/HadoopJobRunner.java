@@ -45,6 +45,7 @@ public class HadoopJobRunner extends BaseJobRunner {
     private String namenodeHost;
     private int namenodePort;
 	private int numFragments;
+	private int maxTasksPerNode;
 	
     private String dbType;
     
@@ -59,12 +60,13 @@ public class HadoopJobRunner extends BaseJobRunner {
     }
     
     public void setHadoopConfiguration(String jobTrackerHost, 
-            int jobTrackerPort, String namenodeHost, int namenodePort, int numFragments) {
+            int jobTrackerPort, String namenodeHost, int namenodePort, int numFragments, int maxTasksPerNode) {
         this.jobTrackerHost = jobTrackerHost;
         this.jobTrackerPort = jobTrackerPort;
         this.namenodeHost = namenodeHost;
         this.namenodePort = namenodePort; 
         this.numFragments = numFragments;
+        this.maxTasksPerNode = maxTasksPerNode;
     }
     
     public void setDbConfiguration(String type, String host, int port, String user, 
@@ -120,7 +122,7 @@ public class HadoopJobRunner extends BaseJobRunner {
         conf.set("fs.default.name","hdfs://"+namenodeHost+":"+namenodePort+"/");
         conf.set("mapred.job.tracker", jobTrackerHost + ":" + jobTrackerPort);
         conf.setInt("mapred.task.timeout",0);
-        conf.setInt("mapred.tasktracker.map.tasks.maximum", 1);
+        conf.setInt("mapred.tasktracker.map.tasks.maximum", maxTasksPerNode);
         conf.setInt(VPConst.SVP_NUM_FRAGMENTS, numFragments);
         
         //TODO read this from interface

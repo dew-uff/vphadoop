@@ -1,15 +1,17 @@
 package uff.dew.vphadoop.test;
 
+import static org.junit.Assert.assertEquals;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 
-import org.apache.hadoop.conf.Configuration;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.catalog.Catalog;
+import uff.dew.vphadoop.db.Database;
+import uff.dew.vphadoop.db.DatabaseFactory;
 
 public class CatalogTest {
     
@@ -27,16 +29,33 @@ public class CatalogTest {
                 + "<portNumber>1984</portNumber> "
                 + "<userName>admin</userName> "
                 + "<userPassword>admin</userPassword> "
-                + "<databaseName>dblp</databaseName>"
+                + "<databaseName>test</databaseName>"
                 + "</database> "
                 + "</vphadoop>");
         fw.close();
+        DatabaseFactory.produceSingletonDatabaseObject(
+                new FileInputStream(config));
     }
+    
+    
 
     @Test
     public void testSaveCatalogFile() throws Exception {
+        Database db = DatabaseFactory.getSingletonDatabaseObject();
+        
         Catalog catalog = Catalog.get();
-        catalog.parseDbConfig(new FileInputStream(config));
-        catalog.parseCatalog("/home/hduser/catalog.xml");
+        catalog.setDatabaseObject(db);
+        catalog.createCatalog();
+        catalog.saveCatalogToFile("catalog-test.xml");
     }
+    
+    @Test
+    public void readCatalogFromFile() throws Exception {
+        Database db = DatabaseFactory.getSingletonDatabaseObject();
+        Catalog catalog = Catalog.get();
+        catalog.setDatabaseObject(db);
+        catalog.populateCatalogFromFile(new FileInputStream("catalog-test.xml"));
+        assertEquals(25500,catalog.getCardinality("site/people/person", "auction", null));
+    }
+
 }

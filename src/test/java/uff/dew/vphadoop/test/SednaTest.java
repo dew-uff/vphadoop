@@ -15,14 +15,14 @@ import uff.dew.vphadoop.catalog.Element;
 import uff.dew.vphadoop.db.Database;
 import uff.dew.vphadoop.db.DatabaseFactory;
 
-public class BaseXTest {
+public class SednaTest {
     
     private static String TEST_COLLECTION_NAME = "testCollection";
     
     /**
-     * Creates a db config file to access the BaseX DB
+     * Creates a db config file to access the Sedna DB
      * 
-     * IMPORTANT: The BaseX server should be up and running and there should be
+     * IMPORTANT: The Sedna server should be up and running and there should be
      * a database there called "test", with a "auction" xml document from xmark,
      * generated with factor 1.0.
      * 
@@ -35,11 +35,11 @@ public class BaseXTest {
         fw.write("<?xml version=\"1.0\"?> "
                 + "<vphadoop> "
                 + "<database> "
-                + "<type>BASEX</type> "
+                + "<type>SEDNA</type> "
                 + "<serverName>127.0.0.1</serverName> "
-                + "<portNumber>1984</portNumber> "
-                + "<userName>admin</userName> "
-                + "<userPassword>admin</userPassword> "
+                + "<portNumber>5050</portNumber> "
+                + "<userName>SYSTEM</userName> "
+                + "<userPassword>MANAGER</userPassword> "
                 + "<databaseName>test</databaseName>"
                 + "</database> "
                 + "</vphadoop>");

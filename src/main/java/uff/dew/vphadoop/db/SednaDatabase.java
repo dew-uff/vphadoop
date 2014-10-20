@@ -3,15 +3,24 @@ package uff.dew.vphadoop.db;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamReader;
 import javax.xml.xquery.XQException;
+import javax.xml.xquery.XQResultSequence;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import net.xqj.basex.BaseXXQDataSource;
 import net.xqj.sedna.SednaXQDataSource;
 import uff.dew.vphadoop.catalog.Element;
 
 public class SednaDatabase extends BaseDatabase {
+    
+    private static Log LOG = LogFactory.getLog(SednaDatabase.class);
 
     public SednaDatabase(String host, int port, String username, String password, String database) throws IOException {
         
@@ -122,7 +131,82 @@ public class SednaDatabase extends BaseDatabase {
 
 	@Override
 	public Map<String, Element> getCatalog() {
-		// TODO Auto-generated method stub
-		return null;
+        
+	    LOG.debug("Getting catalog data from Sedna database: " + databaseName);
+	   
+	    long startTimestamp = System.currentTimeMillis();
+	    
+	    String query = "doc('$schema')";
+        
+        Map<String,Element> map = null;
+        
+        try {
+            XQResultSequence seq = executeQuery(query);
+            if (seq.next()) {
+                XMLStreamReader stream = seq.getItemAsStream();
+                map = parseSchemaDocument(stream);                
+            }
+            freeResources(seq);
+        } catch (XQException e) {
+            LOG.error("Error creating catalog! + " + e.getMessage());
+        } catch (XMLStreamException e) {
+            LOG.error("Error creating catalog! + " + e.getMessage());
+        } 
+        
+        LOG.debug("Catalog created! Time to parse schema document: " + 
+                (System.currentTimeMillis() - startTimestamp) + "ms.");
+        
+        return map;
 	}
+	
+    private Map<String, Element> parseSchemaDocument(XMLStreamReader stream) throws XMLStreamException {
+        
+        Element element = null;
+        Map<String, Element> map = new HashMap<String, Element>();
+        String currentPath = "";
+        
+        while (stream.hasNext()) {
+            int type = stream.next();
+            
+            switch (type) {
+            case XMLStreamReader.START_ELEMENT:
+                if (stream.getLocalName() == "element") {
+                    // we got a new element
+                    Element newElement = new Element();
+                    if (element != null) {
+                        // if current element is not null, that means the new element
+                        // is subelement of the current element, so set parent
+                        newElement.setParent(element);
+                    }
+                    // now new element is the current element
+                    element = newElement;
+
+                    String name = stream.getAttributeValue(null, "name");
+                    String count = stream.getAttributeValue(null, "total_nodes");
+                    if (count != null && name != null) {
+                        int cardinality = Integer.parseInt(count);
+                        // set current path to include this element
+                        currentPath += "/" + name;
+                        element.setCount(cardinality);
+                        element.setName(name);
+                        element.setPath(currentPath);
+                        map.put(element.getPath(), element);
+                    }                    
+                }
+
+                break;
+            case XMLStreamReader.END_ELEMENT:
+                if (stream.getLocalName() == "element") {
+                    // we finished processing this element, return current path and
+                    // current element to the values of the parent element
+                    currentPath = currentPath.substring(0, currentPath.lastIndexOf('/'));
+                    if (element != null) {
+                        element = element.getParent();
+                    }
+                }
+            }
+        }            
+        
+        return map;
+    }
 }

@@ -1,8 +1,9 @@
 package uff.dew.vphadoop.test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.fail;
 
 import java.io.BufferedWriter;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.net.URI;
@@ -19,7 +20,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import uff.dew.vphadoop.VPConst;
-import uff.dew.vphadoop.catalog.Catalog;
+import uff.dew.vphadoop.db.DatabaseFactory;
 
 public class XqueryEngineTest {
     
@@ -49,7 +50,7 @@ public class XqueryEngineTest {
         try {
             writeDbConfiguration(conf);
             conf.set(VPConst.DB_CONFIGFILE_PATH, "configuration.xml");
-            Catalog.get().setConfiguration(conf);
+            DatabaseFactory.produceSingletonDatabaseObject(new FileInputStream("configuration.xml"));
             SimpleVirtualPartitioning svp = SimpleVirtualPartitioning.getUniqueInstance(true);
             svp.setNumberOfNodes(3);
             svp.setNewDocQuery(true); 
@@ -77,18 +78,18 @@ public class XqueryEngineTest {
         FileSystem fs = FileSystem.get(URI.create("vphadoop"), conf);
         FSDataOutputStream out = fs.create(new Path("configuration.xml"),true);
         BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(out));
-        bw.write("<?xml version=\"1.0\"?>\n");
-        bw.write("<vphadoop>\n");
-        bw.write("<database>\n");
-        bw.write("<type>"+ "BASEX" +"</type>\n");
-        bw.write("<host>127.0.0.1</host>\n");
-        bw.write("<port>1984</port>\n");
-        bw.write("<username>admin</username>\n");
-        bw.write("<password>admin</password>\n");
-        bw.write("</database>\n");
-        bw.write("</vphadoop>\n");
+        bw.write("<?xml version=\"1.0\"?> "
+                + "<vphadoop> "
+                + "<database> "
+                + "<type>BASEX</type> "
+                + "<serverName>127.0.0.1</serverName> "
+                + "<portNumber>1984</portNumber> "
+                + "<userName>admin</userName> "
+                + "<userPassword>admin</userPassword> "
+                + "<databaseName>test</databaseName>"
+                + "</database> "
+                + "</vphadoop>");
         bw.close();
         out.close();
     }
-
 }

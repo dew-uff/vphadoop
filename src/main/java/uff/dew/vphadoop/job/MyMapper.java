@@ -1,11 +1,14 @@
 package uff.dew.vphadoop.job;
 
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.StringReader;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import mediadorxml.fragmentacaoVirtualSimples.Query;
 import mediadorxml.fragmentacaoVirtualSimples.SubQuery;
@@ -50,15 +53,19 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
         
         // execute query, saving result to a partial file in hdfs
         FileSystem fs = FileSystem.get(context.getConfiguration());
-        String partialFilename = PARTIALS_DIR + "/partial_" + key.toString() + "_" + context.getTaskAttemptID() + ".xml";
-        Path partialPath = new Path(partialFilename);
-        OutputStream partialFile = fs.create(partialPath);
-        boolean hasResults = SubQuery.executeSubQuery(subquery, partialFile);
-        partialFile.close();
+        String zipFilename = PARTIALS_DIR + "/partial_" + key.toString() + "_" + context.getTaskAttemptID() + ".zip";
+        Path zipPath = new Path(zipFilename);
+        OutputStream zipFile = fs.create(zipPath);
+
+        ZipOutputStream zipout = new ZipOutputStream(new BufferedOutputStream(zipFile));
+        ZipEntry entry = new ZipEntry("partial_" + key.toString() + ".xml");
+        zipout.putNextEntry(entry);
+        boolean hasResults = SubQuery.executeSubQuery(subquery, zipout);
+        zipout.close();
         
         // if it doesn't have results, delete the partial file
         if (!hasResults) {
-            fs.delete(partialPath, false);
+            fs.delete(zipPath, false);
         }
         
         long timeProcessing = System.currentTimeMillis() - start;
@@ -68,7 +75,7 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
         if (hasResults) {
         	context.getCounter(VPCounters.PARTITIONS_WITH_RESULT).increment(1);
             // reducer will receive a list of filenames containing the fragments
-            context.write(NullWritable.get(), new Text(partialFilename));
+            context.write(NullWritable.get(), new Text(zipFilename));
         }
     }
 

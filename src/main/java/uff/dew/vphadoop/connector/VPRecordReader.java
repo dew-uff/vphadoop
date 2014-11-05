@@ -1,20 +1,15 @@
 package uff.dew.vphadoop.connector;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URI;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
-import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.db.DatabaseFactory;
 
 
@@ -74,8 +69,13 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	public void initialize(InputSplit split, TaskAttemptContext ctxt)
 			throws IOException, InterruptedException {
 		
-	    readConfiguration(ctxt.getConfiguration());
-		
+	    try {
+	        readConfiguration(ctxt.getConfiguration());
+	    }
+	    catch (Exception e) {
+	        throw new IOException("Something went wrong while reading config parameters for database.");
+	    }
+	        
 		VPInputSplit vpSplit = (VPInputSplit) split;
 		
 		xquery = vpSplit.getFragmentQuery();
@@ -91,17 +91,10 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 		//readData();
 	}
 
-	private void readConfiguration(Configuration conf) throws IOException {
+	private void readConfiguration(Configuration conf) throws Exception {
 
-		String configFilePath = conf.get(VPConst.DB_CONFIGFILE_PATH);
-		
-		FileSystem fs = FileSystem.get(URI.create("vphadoop"), conf);
-		InputStream is = fs.open(new Path(configFilePath));
-		
 		// produce database object for this task
-		DatabaseFactory.produceSingletonDatabaseObject(is);
-		
-		is.close();
+		DatabaseFactory.produceSingletonDatabaseObject(conf);
 	}
 
 	@Override

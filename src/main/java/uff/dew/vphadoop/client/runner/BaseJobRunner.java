@@ -111,7 +111,7 @@ public abstract class BaseJobRunner implements JobRunner {
         }
     }
 
-    protected abstract void prepare() throws IOException;
+    protected abstract void prepare() throws Exception;
     
     protected abstract void doRunJob() throws IOException, InterruptedException, ClassNotFoundException;
     

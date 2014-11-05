@@ -1,7 +1,6 @@
 package uff.dew.vphadoop.client;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
@@ -24,13 +23,7 @@ public class VPCLI {
     private static final Log LOG = LogFactory.getLog(VPCLI.class);
     
     private static String resultFile;
-    private static String jobtrackerHost;
-    private static String namenodeHost;
-	private static int jobtrackerPort;
-	private static int namenodePort;
 	private static String catalogFile;
-	private static int numFragments;
-	private static int maxTasksPerNode;
 	
     private static JobRunner job;
     
@@ -87,26 +80,13 @@ public class VPCLI {
      */
     public static void main(String[] args) {
 
-        if (args.length < 9) {
+        if (args.length < 3) {
         	LOG.error("Usage: java -jar vphadoop.jar "
-                    		+ "<dbconfiguration.xml> " //0
+        	                + "<jobconfiguration.xml> " //0
                             + "<query.xq> "            //1
                             + "<output_file> "         //2
-                            + "<jobtrackerhost> "      //3
-                            + "<jobtrackerport> "      //4
-                            + "<namenodehost> "        //5
-                            + "<namenodeport> "        //6
-                            + "<# fragments>"          //7
-                            + "<maxtaskspernode>"      //8
-                            + "[<catalog.xml>]");      //9
+                            + "[<catalog.xml>]");      //3
             System.exit(0);
-        }
-
-        // configuration file
-        File f = new File(args[0]);
-        if (!f.exists()) {
-        	LOG.error(args[0] + " DB configuration file not found!");
-            System.exit(1);
         }
 
         // query file
@@ -125,37 +105,11 @@ public class VPCLI {
             System.exit(1);
         }
         
-        try {
-            jobtrackerPort = Integer.parseInt(args[4]);        	
-            namenodePort = Integer.parseInt(args[6]);
-        } catch (NumberFormatException e) {
-        	LOG.error("Ports must be numbers! (" + e.getMessage() + ")");
-        	System.exit(1);
-        }
-
-        try {
-            numFragments = Integer.parseInt(args[7]);
-        } catch (NumberFormatException e) {
-        	LOG.error("NumFragments must be number! (" + e.getMessage() + ")");
-        	System.exit(1);
-        }
-
-        try {
-            maxTasksPerNode = Integer.parseInt(args[8]);
-        } catch (NumberFormatException e) {
-        	LOG.error("maxTasksPerNode must be number! (" + e.getMessage() + ")");
-        	System.exit(1);
-        } 
-        
         resultFile = args[2];
-        jobtrackerHost = args[3];
-        namenodeHost = args[5];
-        
-        
 
         // has catalog
-        if (args.length == 10) {
-        	catalogFile = args[9];
+        if (args.length == 4) {
+        	catalogFile = args[3];
         }
         else {
         	catalogFile = null;
@@ -243,10 +197,9 @@ public class VPCLI {
      * @throws IOException
      * @throws JobException
      */
-    private static void processQuery(String query, String dbConf) throws IOException, JobException {
+    private static void processQuery(String query, String jobConfFilename) throws IOException, JobException {
         HadoopJobRunner hadoopJob = new HadoopJobRunner(query);
-        hadoopJob.setHadoopConfiguration(jobtrackerHost, jobtrackerPort, namenodeHost, namenodePort, numFragments, maxTasksPerNode);
-        hadoopJob.setDbConfiguration(dbConf);
+        hadoopJob.setJobConfiguration(jobConfFilename);
         hadoopJob.setCatalog(catalogFile);
         hadoopJob.addListener(myJobListener);
         

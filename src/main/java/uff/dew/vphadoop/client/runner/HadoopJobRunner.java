@@ -1,15 +1,12 @@
 package uff.dew.vphadoop.client.runner;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.net.URI;
 
 import org.apache.commons.logging.Log;
@@ -37,20 +34,11 @@ public class HadoopJobRunner extends BaseJobRunner {
     
     private static final Log LOG = LogFactory.getLog(HadoopJobRunner.class);
     
-    private static final String DB_CONFIG_PATH = "configuration.xml";
     private static final String OUTPUT_PATH = "output";
     
-    private String jobTrackerHost;
-    private int jobTrackerPort;
-    private String namenodeHost;
-    private int namenodePort;
-	private int numFragments;
-	private int maxTasksPerNode;
+    private String jobConfigFile;
+    private String catalogFile;
 	
-    private String dbType;
-    
-    private String dbConfFile;
-    
     private Path outputPath;
     
     private Job job;
@@ -59,54 +47,12 @@ public class HadoopJobRunner extends BaseJobRunner {
         super(query);
     }
     
-    public void setHadoopConfiguration(String jobTrackerHost, 
-            int jobTrackerPort, String namenodeHost, int namenodePort, int numFragments, int maxTasksPerNode) {
-        this.jobTrackerHost = jobTrackerHost;
-        this.jobTrackerPort = jobTrackerPort;
-        this.namenodeHost = namenodeHost;
-        this.namenodePort = namenodePort; 
-        this.numFragments = numFragments;
-        this.maxTasksPerNode = maxTasksPerNode;
-    }
-    
-    public void setDbConfiguration(String type, String host, int port, String user, 
-            String password, String dbName) throws IOException {
-        
-        String configPath = writeDbConfigurationFile(type, host, port, user, password, dbName);
-        setDbConfiguration(configPath);
-    }
-    
-    public void setDbConfiguration(String dbConfFile) {
-        this.dbConfFile = dbConfFile;
-        try {
-            FileInputStream fis = new FileInputStream(dbConfFile);
-            DatabaseFactory.produceSingletonDatabaseObject(fis);
-            Database dbObject = DatabaseFactory.getSingletonDatabaseObject();
-            this.dbType = dbObject.getType();
-            fis.close();
-        } catch (Exception e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+    public void setJobConfiguration(String jobConfFilename) {
+        this.jobConfigFile = jobConfFilename;        
     }
     
     public void setCatalog(String catalogFile) {
-
-    	Catalog.get().setDatabaseObject(DatabaseFactory.getSingletonDatabaseObject());
-    	
-    	if (catalogFile != null) {
-    		try {
-            	FileInputStream fis = new FileInputStream(catalogFile);
-            	Catalog.get().populateCatalogFromFile(fis);
-    		} 
-    		catch (FileNotFoundException e) {
-    			Catalog.get().createCatalog();
-    			Catalog.get().saveCatalogToFile(catalogFile);
-    		}
-    	}
-    	else {
-    		Catalog.get().setDbMode(true);
-    	}
+        this.catalogFile = catalogFile;
     }
     
     @Override
@@ -115,68 +61,50 @@ public class HadoopJobRunner extends BaseJobRunner {
     }
 
     @Override
-    protected void prepare() throws IOException {
+    protected void prepare() throws Exception {
         
     	Configuration conf = new Configuration();
+    	conf.addResource(new Path(jobConfigFile));
 
-        conf.set("fs.default.name","hdfs://"+namenodeHost+":"+namenodePort+"/");
-        conf.set("mapred.job.tracker", jobTrackerHost + ":" + jobTrackerPort);
-        conf.setInt("mapred.task.timeout",0);
-        conf.setInt("mapred.tasktracker.map.tasks.maximum", maxTasksPerNode);
-        conf.setInt(VPConst.SVP_NUM_FRAGMENTS, numFragments);
+        conf.set(VPConst.XQUERY, xquery);
         
-        //TODO read this from interface
-        conf.set(VPConst.DB_XQUERY, xquery);
-        conf.set(VPConst.DB_CONFIGFILE_PATH, DB_CONFIG_PATH);
+        DatabaseFactory.produceSingletonDatabaseObject(conf);
         
-        copyDbConfigurationToHDFS(conf);
+        setupCatalog();
         
         job = setupJob(conf);
     }
     
-    private void copyDbConfigurationToHDFS(Configuration conf) throws IOException {
-        FileSystem fs = FileSystem.get(conf);
-        if (dbConfFile == null) {
-        	throw new IOException("Config file was not given nor created!");
+    private void setupCatalog() {
+        
+        Catalog.get().setDatabaseObject(DatabaseFactory.getSingletonDatabaseObject());
+        
+        if (catalogFile != null) {
+            try {
+                FileInputStream fis = new FileInputStream(catalogFile);
+                Catalog.get().populateCatalogFromFile(fis);
+            } 
+            catch (FileNotFoundException e) {
+                Catalog.get().createCatalog();
+                Catalog.get().saveCatalogToFile(catalogFile);
+            }
         }
-        fs.copyFromLocalFile(new Path(dbConfFile), new Path(DB_CONFIG_PATH));
-        fs.close();
+        else {
+            Catalog.get().setDbMode(true);
+        }
     }
-
-    private String writeDbConfigurationFile(String dbType, String dbHost, int dbPort, String dbUser, String dbPassword, String dbName) throws IOException {
-        
-    	File file = File.createTempFile("configuration", "xml");
-    	
-    	FileOutputStream fos = new FileOutputStream(file);
-    	
-        BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fos));
-        bw.write("<?xml version=\"1.0\"?>\n");
-        bw.write("<vphadoop>\n");
-        bw.write("<database>\n");
-        bw.write("<"+DatabaseFactory.CONFIG_FILE_TYPE_ELEMENT+">"+ dbType +"</"+DatabaseFactory.CONFIG_FILE_TYPE_ELEMENT+">\n");
-        bw.write("<"+DatabaseFactory.CONFIG_FILE_HOST_ELEMENT+">"+ dbHost+"</"+DatabaseFactory.CONFIG_FILE_HOST_ELEMENT+">\n");
-        bw.write("<"+DatabaseFactory.CONFIG_FILE_PORT_ELEMENT+">"+ dbPort+"</"+DatabaseFactory.CONFIG_FILE_PORT_ELEMENT+">\n");
-        bw.write("<"+DatabaseFactory.CONFIG_FILE_USERNAME_ELEMENT+">"+ dbUser+"</"+DatabaseFactory.CONFIG_FILE_USERNAME_ELEMENT+">\n");
-        bw.write("<"+DatabaseFactory.CONFIG_FILE_PASSWORD_ELEMENT+">"+ dbPassword+"</"+DatabaseFactory.CONFIG_FILE_PASSWORD_ELEMENT+">\n");
-        bw.write("<"+DatabaseFactory.CONFIG_FILE_DATABASE_ELEMENT+">"+ dbName +"</"+DatabaseFactory.CONFIG_FILE_DATABASE_ELEMENT+">\n");
-        bw.write("</database>\n");
-        bw.write("</vphadoop>\n");
-        bw.close();
-        fos.close();
-        
-        return file.getPath();
-    }
-    
+            
     private Job setupJob(Configuration conf) throws IOException {
         
         String localJarsDir = "./dist";
-        String hdfsJarsDir = "/user/gtessarolli/libs";
+        String hdfsJarsDir = "libs";
+        final Database database = DatabaseFactory.getSingletonDatabaseObject();
         FileFilter fileFilter = new FileFilter() {
             @Override
             public boolean accept(File file) {
-                if (dbType.equals(DatabaseFactory.TYPE_SEDNA) && file.getName().indexOf("basex") != -1) {
+                if (database.getType().equals(VPConst.DB_TYPE_SEDNA) && file.getName().indexOf("basex") != -1) {
                     return false;
-                } else if (dbType.equals(DatabaseFactory.TYPE_BASEX) && file.getName().indexOf("sedna") != -1){
+                } else if (database.getType().equals(VPConst.DB_TYPE_BASEX) && file.getName().indexOf("sedna") != -1){
                     return false;
                 }
                 return true;

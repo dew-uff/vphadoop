@@ -14,6 +14,7 @@ import net.xqj.basex.BaseXXQDataSource;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.catalog.Element;
 
 public class BaseXDatabase extends BaseDatabase {
@@ -100,7 +101,7 @@ public class BaseXDatabase extends BaseDatabase {
 
     @Override
     public String getType() {
-        return DatabaseFactory.TYPE_BASEX;
+        return VPConst.DB_TYPE_BASEX;
     }
 
     @Override

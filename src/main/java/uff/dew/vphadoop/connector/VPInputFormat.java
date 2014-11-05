@@ -51,7 +51,7 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         Configuration conf = ctxt.getConfiguration();
         
         // the query to process
-        inputQuery = conf.get(VPConst.DB_XQUERY);
+        inputQuery = conf.get(VPConst.XQUERY);
         nnodes = conf.getInt(VPConst.SVP_NUM_FRAGMENTS, 30);
         
         long start = System.currentTimeMillis();

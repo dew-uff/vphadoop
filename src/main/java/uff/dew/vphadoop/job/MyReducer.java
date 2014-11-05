@@ -23,7 +23,6 @@ import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 
-import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.db.Database;
 import uff.dew.vphadoop.db.DatabaseFactory;
 
@@ -46,11 +45,13 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         
 		// construct db object from configuration file 
         Configuration conf = context.getConfiguration();
-		FileSystem fs = FileSystem.get(conf);
-        String configFilePath = conf.get(VPConst.DB_CONFIGFILE_PATH);
-		InputStream is = fs.open(new Path(configFilePath));
-		DatabaseFactory.produceSingletonDatabaseObject(is);
-		is.close();
+		try {
+		    DatabaseFactory.produceSingletonDatabaseObject(conf);
+		}
+		catch(Exception e) {
+		    throw new IOException("Something went wrong while reading database configuration values");
+		}
+		
         Database db = DatabaseFactory.getSingletonDatabaseObject();
         
         // put every partial result in a temp collection at the database
@@ -69,11 +70,14 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
 
         long repopulateTimestamp = System.currentTimeMillis();
         
-        LOG.debug("VP:reducer:repopulate: " + (repopulateTimestamp - loadingTimestamp) + " ms.");
+        long repopulateTime = repopulateTimestamp - loadingTimestamp;
+        LOG.debug("VP:reducer:repopulate: " + repopulateTime + " ms.");
+        context.getCounter(VPCounters.COMPOSING_TIME_REPOPULATE_OBJECTS).increment(repopulateTime);
         
         SubQuery sbq = SubQuery.getUniqueInstance(true);
         
         Path path = new Path("result.xml");
+        FileSystem fs = FileSystem.get(conf);
         OutputStream resultWriter = fs.create(path);
 
         // construct the query to get the result from the temp collection
@@ -195,6 +199,7 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
             for(Text filename : values) {
                 String localFilename = tempDir.getAbsolutePath()+"/partial_"+ count++ +".xml";
                 fs.copyToLocalFile(new Path(filename.toString()), new Path(localFilename));
+
             }
             LOG.debug("loadPartialsIntoDb:time to copy from hdfs to local: " + (System.currentTimeMillis() - timestamp) + " ms.");
             timestamp = System.currentTimeMillis();

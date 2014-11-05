@@ -16,6 +16,7 @@ import org.apache.commons.logging.LogFactory;
 
 import net.xqj.basex.BaseXXQDataSource;
 import net.xqj.sedna.SednaXQDataSource;
+import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.catalog.Element;
 
 public class SednaDatabase extends BaseDatabase {
@@ -126,7 +127,7 @@ public class SednaDatabase extends BaseDatabase {
     
     @Override
     public String getType() {
-        return DatabaseFactory.TYPE_SEDNA;
+        return VPConst.DB_TYPE_SEDNA;
     }
 
 	@Override

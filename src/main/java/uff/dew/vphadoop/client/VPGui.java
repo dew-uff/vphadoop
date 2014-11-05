@@ -16,7 +16,6 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JRadioButton;
@@ -26,10 +25,9 @@ import javax.swing.JTextField;
 import javax.swing.border.EtchedBorder;
 
 import mediadorxml.javaccparser.XQueryParser;
-import uff.dew.vphadoop.client.runner.HadoopJobRunner;
+import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.client.runner.JobListener;
 import uff.dew.vphadoop.client.runner.JobRunner;
-import uff.dew.vphadoop.db.DatabaseFactory;
 
 public class VPGui implements JobListener {
     
@@ -312,7 +310,7 @@ public class VPGui implements JobListener {
         c.insets = new Insets(10, 0, 0, 10);
         dbTypeChooser = new ButtonGroup();
         final JRadioButton basexButton = new JRadioButton("BaseX");
-        basexButton.setActionCommand(DatabaseFactory.TYPE_BASEX);
+        basexButton.setActionCommand(VPConst.DB_TYPE_BASEX);
         basexButton.setSelected(true);
         basexButton.addActionListener(new ActionListener() {
             @Override
@@ -326,7 +324,7 @@ public class VPGui implements JobListener {
         });
 
         final JRadioButton sednaButton = new JRadioButton("Sedna");
-        sednaButton.setActionCommand(DatabaseFactory.TYPE_SEDNA);
+        sednaButton.setActionCommand(VPConst.DB_TYPE_SEDNA);
         sednaButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -517,38 +515,39 @@ public class VPGui implements JobListener {
     }
     
     private void startHadoopJob() {
-        
-       try { 
-            HadoopJobRunner hadoopJob = new HadoopJobRunner(queryArea.getText().trim());
-            
-            hadoopJob.setHadoopConfiguration(jobTrackerHostField.getText().trim(), Integer.parseInt(jobTrackerPortField.getText().trim()), 
-            		namenodeHostField.getText().trim(), Integer.parseInt(namenodePortField.getText().trim()), 30, 2);
-
-            String dbType = dbTypeChooser.getSelection().getActionCommand();
-            hadoopJob.setDbConfiguration(dbType,hostField.getText().trim(), Integer.parseInt(portField.getText().trim()), 
-                    usernameField.getText().trim(), passwordField.getText().trim(), dbNameField.getText().trim());
-            
-            // TODO read file from interface
-            hadoopJob.setCatalog(null);
-            
-            hadoopJob.addListener(this);
-            
-            hadoopJob.runJob();
-            
-            queryButton.setEnabled(false);
-            mapProgress.setValue(0);
-            mapProgress.setString("");
-            reduceProgress.setValue(0);
-            reduceProgress.setString("");
-            outputArea.setText("");
-
-            jobRunner = hadoopJob;
-            
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(frame, "Well.. something is not right!\n"+e.getMessage(), 
-                    "Error", JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace();
-        }
+// TODO fix gui, if we have time for it.... 
+//        
+//       try { 
+//            HadoopJobRunner hadoopJob = new HadoopJobRunner(queryArea.getText().trim());
+//            
+//            hadoopJob.setHadoopConfiguration(jobTrackerHostField.getText().trim(), Integer.parseInt(jobTrackerPortField.getText().trim()), 
+//            		namenodeHostField.getText().trim(), Integer.parseInt(namenodePortField.getText().trim()), 30, 2);
+//
+//            String dbType = dbTypeChooser.getSelection().getActionCommand();
+//            hadoopJob.setDbConfiguration(dbType,hostField.getText().trim(), Integer.parseInt(portField.getText().trim()), 
+//                    usernameField.getText().trim(), passwordField.getText().trim(), dbNameField.getText().trim());
+//            
+//            // TODO read file from interface
+//            hadoopJob.setCatalog(null);
+//            
+//            hadoopJob.addListener(this);
+//            
+//            hadoopJob.runJob();
+//            
+//            queryButton.setEnabled(false);
+//            mapProgress.setValue(0);
+//            mapProgress.setString("");
+//            reduceProgress.setValue(0);
+//            reduceProgress.setString("");
+//            outputArea.setText("");
+//
+//            jobRunner = hadoopJob;
+//            
+//        } catch (Exception e) {
+//            JOptionPane.showMessageDialog(frame, "Well.. something is not right!\n"+e.getMessage(), 
+//                    "Error", JOptionPane.ERROR_MESSAGE);
+//            e.printStackTrace();
+//        }
     }
     
     private void showOutput() {

@@ -1,97 +1,66 @@
 package uff.dew.vphadoop.db;
 
-import java.io.IOException;
-import java.io.InputStream;
+import org.apache.hadoop.conf.Configuration;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-
-import org.w3c.dom.Document;
+import uff.dew.vphadoop.VPConst;
 
 public class DatabaseFactory {
-    
-    public static final String CONFIG_FILE_HOST_ELEMENT = "serverName";
-    public static final String CONFIG_FILE_PORT_ELEMENT = "portNumber";
-    public static final String CONFIG_FILE_USERNAME_ELEMENT = "userName";
-    public static final String CONFIG_FILE_PASSWORD_ELEMENT = "userPassword";
-    public static final String CONFIG_FILE_TYPE_ELEMENT = "type";
-    public static final String CONFIG_FILE_DATABASE_ELEMENT = "databaseName";
-    
-    public static final String TYPE_BASEX = "BASEX";
-    public static final String TYPE_SEDNA = "SEDNA";
     
     private static Database databaseInstance;
     
     private DatabaseFactory() {
     }
 
-    public static void produceSingletonDatabaseObject(InputStream dbConfigIS) throws IOException {
-        databaseInstance = DatabaseFactory.createDatabaseObject(dbConfigIS);
+    public static void produceSingletonDatabaseObject(Configuration conf) throws Exception {
+        String type = conf.get(VPConst.DB_CONF_TYPE);
+        if (type == null) {
+            throw new Exception("SGBDX type not specified in job configuration file");
+        }
+        
+        String hostname = conf.get(VPConst.DB_CONF_HOST);
+        if (hostname == null) {
+            throw new Exception("SGBDX host not specified in job configuration file");
+        }
+        
+        String portstr = conf.get(VPConst.DB_CONF_PORT);
+        if (portstr == null) {
+            throw new Exception("SGBDX port not specified in job configuration file");
+        }
+        int port = -1;
+        try {
+            port = Integer.parseInt(portstr);
+        }
+        catch (NumberFormatException e) {
+            throw new Exception("SGBDX port specified is not a number");
+        }
+        
+        String username = conf.get(VPConst.DB_CONF_USERNAME);
+        if (username == null) {
+            throw new Exception("SGBDX username not specified in job configuration file");
+        }
+
+        String password = conf.get(VPConst.DB_CONF_PASSWORD);
+        if (password == null) {
+            throw new Exception("SGBDX password not specified in job configuration file");
+        }
+
+        String database = conf.get(VPConst.DB_CONF_DATABASE);
+        if (database == null) {
+            throw new Exception("SGBDX database not specified in job configuration file");
+        }
+
+        if (type.equals(VPConst.DB_TYPE_BASEX)) {
+            databaseInstance = new BaseXDatabase(hostname, port, username, password, database);
+        }
+        else if (type.equals(VPConst.DB_TYPE_SEDNA)) {
+            databaseInstance = new SednaDatabase(hostname, port, username, password, database);
+        }
+        else {
+            throw new Exception("Database type not recognized. Must be either SEDNA or BASEX.");
+        }
     }
     
     public static Database getSingletonDatabaseObject() {
     	return databaseInstance;
-    }
-    
-    private static Database createDatabaseObject(InputStream fileStream) throws IOException {
-        
-        try
-        {
-            DocumentBuilderFactory b = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = b.newDocumentBuilder();
-            Document doc = builder.parse(fileStream);
-            
-            Database database;
-            
-            if (doc.getElementsByTagName(CONFIG_FILE_TYPE_ELEMENT).item(0)
-                    .getTextContent().equals(TYPE_BASEX)) {
-                database = getBaseXDatabase(doc);
-            } else {
-                database = getSednaDatabase(doc);
-            }
-            
-            return database;
-        }
-        catch(Exception e) {
-            throw new IOException(e);
-        }
-    }
-
-    private static Database getBaseXDatabase(Document doc) throws IOException {
-        String host = doc.getElementsByTagName(CONFIG_FILE_HOST_ELEMENT).item(0)
-                .getTextContent();
-        
-        String port = doc.getElementsByTagName(CONFIG_FILE_PORT_ELEMENT).item(0)
-                .getTextContent();
-        
-        String user = doc.getElementsByTagName(CONFIG_FILE_USERNAME_ELEMENT).item(0)
-                .getTextContent();
-        
-        String pass = doc.getElementsByTagName(CONFIG_FILE_PASSWORD_ELEMENT).item(0)
-                .getTextContent();
-        
-        String database = doc.getElementsByTagName(CONFIG_FILE_DATABASE_ELEMENT).item(0)
-                .getTextContent();
-        
-        return new BaseXDatabase(host, Integer.parseInt(port), user, pass, database);
-    }
-    
-    private static Database getSednaDatabase(Document doc) throws IOException {
-        String host = doc.getElementsByTagName(CONFIG_FILE_HOST_ELEMENT).item(0)
-                .getTextContent();
-        
-        String port = doc.getElementsByTagName(CONFIG_FILE_PORT_ELEMENT).item(0)
-                .getTextContent();
-        
-        String user = doc.getElementsByTagName(CONFIG_FILE_USERNAME_ELEMENT).item(0)
-                .getTextContent();
-        
-        String pass = doc.getElementsByTagName(CONFIG_FILE_PASSWORD_ELEMENT).item(0)
-                .getTextContent();
-        
-        String database = doc.getElementsByTagName(CONFIG_FILE_DATABASE_ELEMENT).item(0)
-                .getTextContent();
-        
-        return new SednaDatabase(host, Integer.parseInt(port), user, pass, database);
     }
 }

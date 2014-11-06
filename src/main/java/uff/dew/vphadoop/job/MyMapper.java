@@ -25,8 +25,6 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
     
     public static final String PARTIALS_DIR = "partials";
     
-    private String subquery = new String();
-    
     public MyMapper() {
 
     }
@@ -42,10 +40,10 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
         String fragment = value.toString(); 
         
         // need to process it to extract the subquery
-        processFragment(fragment);
+        String subquery = processFragment(fragment);
         
         if (subquery.indexOf("order by") != -1) {
-        	insertOrderByElementInSubQuery();
+        	subquery = insertOrderByElementInSubQuery(subquery);
         }
         
         // execute query, saving result to a partial file in hdfs
@@ -72,7 +70,7 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
         }
     }
 
-    private void insertOrderByElementInSubQuery() {
+    private String insertOrderByElementInSubQuery(String subquery) {
     	String orderByElement = getOrderByElementFromQuery(subquery);
     	LOG.debug("VP:mapper:insertOrderBy:order by:" + orderByElement);    	
 		
@@ -90,8 +88,9 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
     			+ "<element>" + wholeElement + "</element>\r\n"
     			+ "</orderby>" +
     			subquery.substring(endInsertPos);
-    	
-    	LOG.debug("VP:mapper:insertOrderBy:subquery: " + subquery);
+
+        LOG.debug("VP:mapper:insertOrderBy:subquery: " + subquery);
+    	return subquery;
 	}
 
 	private static String getOrderByElementFromQuery(String query) {
@@ -127,7 +126,7 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
 		}
 	}
 
-	private void processFragment(String fragment) throws IOException {
+	private String processFragment(String fragment) throws IOException {
 
         Query q = Query.getUniqueInstance(true);
         SubQuery sbq = SubQuery.getUniqueInstance(true);
@@ -136,6 +135,7 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
         BufferedReader buff = new BufferedReader(sr);
 
         String line;
+        String subquery = "";
         while((line = buff.readLine()) != null){    
 
             if (!line.toUpperCase().contains("<ORDERBY>") && !line.toUpperCase().contains("<ORDERBYTYPE>") 
@@ -180,5 +180,6 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
         
         subquery = subquery.trim();
         sbq.setConstructorElement(SubQuery.getConstructorElement(subquery));
+        return subquery;
     }
 }

@@ -33,7 +33,9 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
     private ArrayList<String> docQueriesWithoutFragmentation;
     private String originalQuery;
     private String inputQuery;
-    private int nnodes = 30;
+    private int nsplits = 10;
+    private int nrecords = 5;
+    private int nfragments = 50;
     private String xquery;
     private XQueryEngine engine;
 
@@ -52,7 +54,10 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         
         // the query to process
         inputQuery = conf.get(VPConst.XQUERY);
-        nnodes = conf.getInt(VPConst.SVP_NUM_FRAGMENTS, 30);
+        nsplits = conf.getInt(VPConst.SVP_NUM_SPLITS, 10);
+        nrecords = conf.getInt(VPConst.SVP_RECORDS_PER_SPLIT, 5);
+        
+        nfragments = nsplits * nrecords;
         
         long start = System.currentTimeMillis();
         
@@ -70,12 +75,18 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         
         List<InputSplit> splits = new ArrayList<InputSplit>();
 
-        String[] queries = getQueries();
+        List<String> queries = new ArrayList<String>(getQueries());
+        int qcount = 0;
         
-        for (int i = 0; i < queries.length; i++) {
-            LOG.debug("Query["+i+"]= " + queries[i]);
-            int initialPos = Integer.parseInt(SubQuery.getIntervalBeginning(queries[i]));
-            InputSplit is = new VPInputSplit(initialPos, queries[i]);
+        for (int i = 0; i < nsplits; i++) {
+            List<String> qs = new ArrayList<>(nrecords);
+            for (int j = 0; j < nrecords; j++) {
+                qs.add(queries.get(qcount));
+                LOG.debug("Split["+i+"]Record["+j+"] = Queries["+qcount+"] = " + queries.get(qcount));
+                qcount++;
+            }
+            int initialPos = Integer.parseInt(SubQuery.getIntervalBeginning(queries.get(0)));
+            InputSplit is = new VPInputSplit(initialPos, qs);
             splits.add(is);
         }
         
@@ -86,7 +97,7 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         	fs.delete(hack2, false);
         }
         OutputStream hack = fs.create(new Path("hack.txt"));
-        hack.write(queries[0].getBytes());
+        hack.write(queries.get(0).getBytes());
         hack.close();
         
         LOG.debug("# of splits: " + splits.size());
@@ -138,7 +149,7 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
             }
         }
         else {
-            svp.setNumberOfNodes(nnodes);
+            svp.setNumberOfNodes(nfragments);
             svp.setNewDocQuery(true);                                                       
             executeXQuery();                            
         }
@@ -182,23 +193,21 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
             if (q.getPartitioningPath()!=null && !q.getPartitioningPath().equals("")) {
                 SimpleVirtualPartitioning svp = new SimpleVirtualPartitioning();
                 svp.setCardinalityOfElement(q.getLastCollectionCardinality());
-                svp.setNumberOfNodes(nnodes);                       
+                svp.setNumberOfNodes(nfragments);                       
                 svp.getSelectionPredicateToCollection(q.getVirtualPartitioningVariable(), q.getPartitioningPath(), xquery);                                         
                 q.setAddedPredicate(true);
             }
         }
     }
     
-    private String[] getQueries() throws IOException {
+    private List<String> getQueries() throws IOException {
         
         Query q = Query.getUniqueInstance(true);
         SubQuery sbq = SubQuery.getUniqueInstance(true);        
         
         if ( sbq.getSubQueries()!=null && sbq.getSubQueries().size() > 0 ){
             
-            String [] results = new String[sbq.getSubQueries().size()];
-            
-            int i = 0;
+            List<String> results = new ArrayList<String>(sbq.getSubQueries().size());
             
             for ( String initialFragments : sbq.getSubQueries() ) {
                 StringBuilder result = new StringBuilder();
@@ -208,8 +217,8 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
                 result.append("<AGRFUNC>" + (q.getAggregateFunctions()!=null?q.getAggregateFunctions():"") + "</AGRFUNC>#\r\n");
                 
                 result.append(initialFragments);
-                results[i] = result.toString();
-                i++;                    
+                results.add(result.toString());
+            
             }
             
             return results;
@@ -218,7 +227,7 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
             
             if ( this.docQueriesWithoutFragmentation != null && this.docQueriesWithoutFragmentation.size() >0 ) { // para consulta que nao foram fragmentadas pois nao ha relacionamento de 1 para n.
   
-                return this.docQueriesWithoutFragmentation.toArray(new String[0]);
+                return this.docQueriesWithoutFragmentation;
             }
             else { // nao gerou fragmentos e nao ha consultas de entrada. Ocorreu algum erro durante o parser da consulta. 
                 return null;

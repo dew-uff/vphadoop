@@ -2,6 +2,9 @@ package uff.dew.vphadoop.connector;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapreduce.InputSplit;
@@ -9,7 +12,7 @@ import org.apache.hadoop.mapreduce.InputSplit;
 
 public class VPInputSplit extends InputSplit implements Writable {
     
-    private String query;
+    private List<String> queries;
 	
 	private int startPos = -1;
 
@@ -20,15 +23,14 @@ public class VPInputSplit extends InputSplit implements Writable {
 	    //TODO verify this
 	}
 	
-	public VPInputSplit(int start, String query) {
-		this.startPos = start;
-	    this.query = query;
+	public VPInputSplit(int start, List<String> queries) {
+	    this.queries = queries;
 	}
 	
     @Override
 	public long getLength() throws IOException {
 		// TODO
-		return 1;
+		return queries.size();
 	}
 
 	@Override
@@ -36,23 +38,27 @@ public class VPInputSplit extends InputSplit implements Writable {
 		return nodes;
 	}
 
-	public int getStartPosition() {
-		return startPos;
-	}
-
     @Override
     public void write(DataOutput out) throws IOException {
-        out.writeUTF(query);
+        out.writeInt(queries.size());
+        for (int i = 0; i < queries.size(); i++) {
+            out.writeUTF(queries.get(i));
+            
+        }
         out.writeInt(startPos);
     }
 
     @Override
     public void readFields(DataInput in) throws IOException {
-        query = in.readUTF();
+        int nqueries = in.readInt();
+        queries = new ArrayList<String>(nqueries);
+        for (int i = 0; i < nqueries; i++) {
+            queries.add(in.readUTF());
+        }
         startPos = in.readInt();
     }
 
-    public String getFragmentQuery() {
-        return query;
+    public Iterator<String> getQueriesIterator() {
+        return queries.iterator();
     }
 }

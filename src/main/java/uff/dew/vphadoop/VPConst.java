@@ -13,6 +13,7 @@ public class VPConst {
 
     public static final String XQUERY = "vphadoop.xquery";
     public static final String CATALOG_FILE_PATH = "vphadoop.catalogfile";
-    public static final String SVP_NUM_FRAGMENTS = "vphadoop.svp.numfragments";
+    public static final String SVP_NUM_SPLITS = "vphadoop.svp.numsplits";
+    public static final String SVP_RECORDS_PER_SPLIT = "vphadoop.svp.numrecords";
 	
 }

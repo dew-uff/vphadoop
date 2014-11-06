@@ -1,5 +1,8 @@
 package uff.dew.vphadoop.connector;
 import java.io.IOException;
+import java.util.Iterator;
+
+import mediadorxml.fragmentacaoVirtualSimples.SubQuery;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -22,10 +25,12 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
     private static final int NOT_STARTED = -1;
     private static final int DONE = -2;
 	
-	private int current = NOT_STARTED;
-	private int startPos = 0;
+	private int currentKey = NOT_STARTED;
+	private String currentValue = null;
 	
-	private String xquery = null;
+	Iterator<String> iterator = null;
+	long counter = 0;
+	long size = 0;
 	
 	public VPRecordReader() {
 	    LOG.trace("CONSTRUCTOR() " + this);
@@ -38,31 +43,28 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	@Override
 	public IntWritable getCurrentKey() throws IOException,
 			InterruptedException {
-//	    if (current == NOT_STARTED || current == DONE) {
-//	        return null;
-//	    }
-//		return new IntWritable(current);
-	    return new IntWritable(startPos);
+	    if (currentKey == NOT_STARTED || currentKey == DONE) {
+	        return null;
+	    }
+		return new IntWritable(currentKey);
 	}
 
 	@Override
 	public Text getCurrentValue() throws IOException, InterruptedException {
-//	    try {
-	        //XMLStreamReader reader = rs.getItemAsStream();
-			//return new Text(reader.getText());
-	        //return new Text(rs.getItemAsString(null));
-	        return new Text(xquery);
-//		} catch (XQException e) {
-//			throw new IOException(e);
-//		}
+	    if (currentValue != null) {
+	        return new Text(currentValue);
+	    }
+	    else {
+	        return null;
+	    }
 	}
 
 	@Override
 	public float getProgress() throws IOException, InterruptedException {
-	    if (current == NOT_STARTED) return 0;
-	    if (current == DONE) return 1;
-	    //return (current-first+1)/(float)total;
-	    return 1;
+	    if (currentKey == NOT_STARTED) return 0;
+	    if (currentKey == DONE) return 1;
+	    
+	    return counter/size;
 	}
 
 	@Override
@@ -78,17 +80,9 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	        
 		VPInputSplit vpSplit = (VPInputSplit) split;
 		
-		xquery = vpSplit.getFragmentQuery();
-		startPos = vpSplit.getStartPosition();
-//		total = vpSplit.getLengh();
-//		selectionLevel = vpSplit.getSelectionLevel();
-		
-		LOG.debug("xquery: " + xquery);
-        //LOG.trace("initialize() from " + first + " to " + (first + total - 1));
-		
-		//parallelProcessingInit();
-		
-		//readData();
+		iterator = vpSplit.getQueriesIterator();
+		size = vpSplit.getLength();
+		counter = 0;
 	}
 
 	private void readConfiguration(Configuration conf) throws Exception {
@@ -99,10 +93,16 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 
 	@Override
 	public boolean nextKeyValue() throws IOException, InterruptedException {
-        if (current == DONE) {
+        if (iterator.hasNext()) {
+            currentValue = iterator.next();
+            currentKey = Integer.parseInt(SubQuery.getIntervalBeginning(currentValue));
+            counter++;
+            return true;
+        } 
+        else {
+            currentValue = null;
+            currentKey = DONE;
             return false;
         }
-        current = DONE;
-        return true;
 	}
 }

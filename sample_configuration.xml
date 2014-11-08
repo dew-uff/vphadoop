@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<configuration>
+  
+  <!-- MR configuration -->
+
+  <property>
+      <name>fs.default.name</name>
+      <value>hdfs://localhost:54310</value>
+  </property>
+
+  <property>
+      <name>mapred.job.tracker</name>
+      <value>localhost:54311</value>
+  </property>
+
+  <property>
+      <name>mapred.tasktracker.map.tasks.maximum</name>
+      <value>2</value>
+  </property> 
+  
+  <property>
+      <name>mapred.task.timeout</name>
+      <value>0</value>
+  </property> 
+
+  
+  <!-- VPHADOOP configuration  -->
+  
+  <property>
+      <name>vphadoop.svp.numsplits</name>
+      <value>10</value>
+  </property>  
+
+  <property>
+      <name>vphadoop.svp.numrecords</name>
+      <value>5</value>
+  </property>
+
+  <property>
+      <name>vphadoop.db.hostname</name>
+      <value>localhost</value>
+  </property>  
+
+  <property>
+      <name>vphadoop.db.port</name>
+      <value>5050</value>
+  </property>  
+
+  <property>
+      <name>vphadoop.db.username</name>
+      <value>SYSTEM</value>
+  </property>  
+
+  <property>
+      <name>vphadoop.db.password</name>
+      <value>MANAGER</value>
+  </property>  
+  
+  <property>
+      <name>vphadoop.db.database</name>
+      <value>xmark</value>
+  </property>  
+
+  <property>
+      <name>vphadoop.db.type</name>
+      <value>SEDNA</value>
+  </property>  
+
+</configuration>

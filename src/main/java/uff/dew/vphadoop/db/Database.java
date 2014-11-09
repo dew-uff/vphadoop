@@ -1,5 +1,6 @@
 package uff.dew.vphadoop.db;
 
+import java.io.InputStream;
 import java.util.Map;
 
 import javax.xml.xquery.XQException;
@@ -120,6 +121,13 @@ public interface Database {
      * @return The password
      */
     public String getPassword();
+
+    /**
+     * Return the password used to connect to the database server
+     * 
+     * @return The password
+     */
+    public String getDatabaseName();
     
     /**
      * Return the type of the database.
@@ -133,5 +141,12 @@ public interface Database {
      * 
      */
     public Map<String, Element> getCatalog();
+
+    /**
+     * 
+     * @param collectionName
+     * @param bytes
+     */
+    public void addDocumentToCollection(InputStream content, String docName, String collectionName) throws Exception;
 }
 

@@ -1,6 +1,7 @@
 package uff.dew.vphadoop.db;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,6 +21,8 @@ import uff.dew.vphadoop.catalog.Element;
 public class BaseXDatabase extends BaseDatabase {
 	
 	private static Log LOG = LogFactory.getLog(BaseXDatabase.class);
+	
+	private String databaseName;
 
     public BaseXDatabase(String host, int port, String username, String password, String database) throws IOException {
    	
@@ -29,7 +32,7 @@ public class BaseXDatabase extends BaseDatabase {
         basexDataSource.setPort(port);
         basexDataSource.setUser(username);
         basexDataSource.setPassword(password);
-        setDatabaseName(database);
+        databaseName = database;
         
         dataSource = basexDataSource;
     }
@@ -91,6 +94,11 @@ public class BaseXDatabase extends BaseDatabase {
         return ds.getPassword();
     }
 
+    @Override
+    public String getDatabaseName() {
+        return databaseName;
+    }
+    
     @Override
     public void loadFileInCollection(String collectionName, String filePath)
             throws XQException {
@@ -169,5 +177,12 @@ public class BaseXDatabase extends BaseDatabase {
         }            
         
         return map;
+    }
+
+    @Override
+    public void addDocumentToCollection(InputStream content, String docName,
+            String collectionName) throws Exception {
+        // TODO Auto-generated method stub
+        
     }
 }

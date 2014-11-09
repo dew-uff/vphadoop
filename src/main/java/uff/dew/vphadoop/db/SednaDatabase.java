@@ -3,6 +3,7 @@ package uff.dew.vphadoop.db;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -11,11 +12,15 @@ import javax.xml.stream.XMLStreamReader;
 import javax.xml.xquery.XQException;
 import javax.xml.xquery.XQResultSequence;
 
+import net.xqj.sedna.SednaXQDataSource;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import net.xqj.basex.BaseXXQDataSource;
-import net.xqj.sedna.SednaXQDataSource;
+import ru.ispras.sedna.driver.DatabaseManager;
+import ru.ispras.sedna.driver.DriverException;
+import ru.ispras.sedna.driver.SednaConnection;
+import ru.ispras.sedna.driver.SednaStatement;
 import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.catalog.Element;
 
@@ -92,28 +97,34 @@ public class SednaDatabase extends BaseDatabase {
 
     @Override
     public String getHost() {
-        BaseXXQDataSource ds = (BaseXXQDataSource) dataSource;
+        SednaXQDataSource ds = (SednaXQDataSource) dataSource;
         return ds.getServerName();
     }
 
     @Override
     public int getPort() {
-        BaseXXQDataSource ds = (BaseXXQDataSource) dataSource;
+        SednaXQDataSource ds = (SednaXQDataSource) dataSource;
         return Integer.parseInt(ds.getProperty("port"));
     }
 
     @Override
     public String getUsername() {
-        BaseXXQDataSource ds = (BaseXXQDataSource) dataSource;
+        SednaXQDataSource ds = (SednaXQDataSource) dataSource;
         return ds.getUser();
     }
 
     @Override
     public String getPassword() {
-        BaseXXQDataSource ds = (BaseXXQDataSource) dataSource;
+        SednaXQDataSource ds = (SednaXQDataSource) dataSource;
         return ds.getPassword();
     }
 
+    @Override
+    public String getDatabaseName() {
+        SednaXQDataSource ds = (SednaXQDataSource) dataSource;
+        return ds.getDatabaseName();
+    }
+    
     @Override
     public void loadFileInCollection(String collectionName, String filePath)
             throws XQException {
@@ -133,7 +144,7 @@ public class SednaDatabase extends BaseDatabase {
 	@Override
 	public Map<String, Element> getCatalog() {
         
-	    LOG.debug("Getting catalog data from Sedna database: " + databaseName);
+	    LOG.debug("Getting catalog data from Sedna database: " + getDatabaseName());
 	   
 	    long startTimestamp = System.currentTimeMillis();
 	    
@@ -209,5 +220,34 @@ public class SednaDatabase extends BaseDatabase {
         }            
         
         return map;
+    }
+
+    @Override
+    public void addDocumentToCollection(InputStream content, String docName, String collectionName) throws Exception {
+       
+        SednaConnection conn = null;
+        
+        try {
+            conn = DatabaseManager.getConnection(getHost()+":"+getPort(), getDatabaseName(), 
+                    getUsername(), getPassword());
+            
+            conn.begin();
+            
+            SednaStatement st = conn.createStatement();
+            
+            st.loadDocument(content, docName, collectionName);
+            
+            conn.commit();
+        } 
+        catch(DriverException de) {
+            throw new Exception(de.getMessage());
+        }
+        finally {
+            /* Properly close connection */  
+            try { if(conn != null) conn.close(); }  
+            catch(DriverException e) {  
+              e.printStackTrace();  
+            } 
+        }
     }
 }

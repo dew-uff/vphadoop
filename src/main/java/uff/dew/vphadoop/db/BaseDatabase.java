@@ -54,7 +54,6 @@ public abstract class BaseDatabase implements Database {
 	private static Log LOG = LogFactory.getLog(BaseDatabase.class);
     
     protected XQDataSource dataSource;
-    protected String databaseName;
 	private HashMap<XQResultSequence, ExecutionContext> queriesInExecution = new HashMap<XQResultSequence,ExecutionContext>();
 	private XQConnection conn;
 
@@ -116,13 +115,5 @@ public abstract class BaseDatabase implements Database {
             result = rs.getSequenceAsString(null);           
         }
         return result;
-    }
-    
-    public String getDatabaseName() {
-        return databaseName;
-    }
-
-    public void setDatabaseName(String name) {
-        this.databaseName = name;
     }
 }

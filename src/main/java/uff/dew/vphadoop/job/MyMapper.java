@@ -1,8 +1,8 @@
 package uff.dew.vphadoop.job;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.StringReader;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -12,8 +12,6 @@ import mediadorxml.fragmentacaoVirtualSimples.SubQuery;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
@@ -46,18 +44,9 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
         	subquery = insertOrderByElementInSubQuery(subquery);
         }
         
-        // execute query, saving result to a partial file in hdfs
-        FileSystem fs = FileSystem.get(context.getConfiguration());
-        String partialFilename = PARTIALS_DIR + "/partial_" + key.toString() + "_" + context.getTaskAttemptID() + ".xml";
-        Path partialPath = new Path(partialFilename);
-        OutputStream partialFile = fs.create(partialPath);
-        boolean hasResults = SubQuery.executeSubQuery(subquery, partialFile);
-        partialFile.close();
+        ByteArrayOutputStream os = new ByteArrayOutputStream();
         
-        // if it doesn't have results, delete the partial file
-        if (!hasResults) {
-            fs.delete(partialPath, false);
-        }
+        boolean hasResults = SubQuery.executeSubQuery(subquery, os);
         
         long timeProcessing = System.currentTimeMillis() - start;
         incrementNodeProcessingTime(timeProcessing, context);
@@ -65,9 +54,11 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
         
         if (hasResults) {
         	context.getCounter(VPCounters.PARTITIONS_WITH_RESULT).increment(1);
-            // reducer will receive a list of filenames containing the fragments
-            context.write(NullWritable.get(), new Text(partialFilename));
+        	byte[] output = os.toByteArray();
+            context.write(NullWritable.get(), new Text(output));
         }
+        
+        os.close();
     }
 
     private String insertOrderByElementInSubQuery(String subquery) {

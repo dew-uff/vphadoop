@@ -6,6 +6,7 @@
   <!-- set global properties for this build -->
   <property name="hadoop.root"  location="/opt/hadoop"/>
   <property name="project.root" location="."/>
+  <property name="sedna.root" location="/home/gabriel/sedna"/>
   <property name="src" location="${project.root}/src/main/java"/>
   <property name="build" location="${project.root}/build"/>
   <property name="dist"  location="${project.root}/dist"/>
@@ -26,10 +27,17 @@
 	  <include name="xqj-api-1.0.jar" />
 	</fileset>
   </path>
+  
+  <path id="sedna-libs">
+	<fileset dir="${sedna.root}/driver/java/lib">
+	  <include name="sednadriver.jar" />
+	</fileset>
+  </path>
 	
   <path id="classpath">
   	<path refid="hadoop-lib-jars" />
   	<path refid="project-libs" />
+  	<path refid="sedna-libs" />
   </path>
 	
   <pathconvert property="manifest.classpath" pathsep=" " refid="classpath">
@@ -39,6 +47,7 @@
   <pathconvert property="manifest.classpath2" pathsep=" " refid="classpath">
     <map from="${lib}/" to=""/>
     <map from="${hadoop.root}" to="/usr/local/hadoop-1.2.1"/>
+    <map from="${sedna.root}" to="/usr/local/sedna"/>
   </pathconvert>
 	
   <target name="init" depends="clean">

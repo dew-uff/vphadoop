@@ -1,7 +1,7 @@
 package uff.dew.vphadoop.job;
 
 import java.io.BufferedReader;
-import java.io.File;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -37,7 +37,7 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
     }
 
     @Override
-    protected void reduce(NullWritable key, Iterable<Text> values,
+    protected void reduce(NullWritable key, Iterable<Text> partials,
             Context context)
             throws IOException, InterruptedException {
 
@@ -55,7 +55,7 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         Database db = DatabaseFactory.getSingletonDatabaseObject();
         
         // put every partial result in a temp collection at the database
-        loadPartialsIntoDatabase(db, values, context);
+        loadPartialsIntoDatabase(db, partials, context);
         
         long loadingTimestamp = System.currentTimeMillis();
         long dbLoadingTime = (loadingTimestamp - startTimestamp);
@@ -188,35 +188,27 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         LOG.debug("hack! element after constructor: " + sbq.getElementAfterConstructor());
     }
 
-    private void loadPartialsIntoDatabase(Database db, Iterable<Text> values, Context context) throws IOException {
+    private void loadPartialsIntoDatabase(Database db, Iterable<Text> partials, Context context) throws IOException {
         try {
         	
         	long timestamp = System.currentTimeMillis();
-            //db.deleteCollection(TEMP_COLLECTION_NAME);
-            File tempDir = createTempDirectory();
-            FileSystem fs = FileSystem.get(context.getConfiguration());
+        	
+        	db.createCollection(TEMP_COLLECTION_NAME);
+        	
             int count = 0;
-            for(Text filename : values) {
-                String localFilename = tempDir.getAbsolutePath()+"/partial_"+ count++ +".xml";
-                fs.copyToLocalFile(new Path(filename.toString()), new Path(localFilename));
-
-            }
-            LOG.debug("loadPartialsIntoDb:time to copy from hdfs to local: " + (System.currentTimeMillis() - timestamp) + " ms.");
-            timestamp = System.currentTimeMillis();
-            
-            if (tempDir.list().length > 0) {
-                db.createCollectionWithContent(TEMP_COLLECTION_NAME, tempDir.getAbsolutePath());
+            for(Text partial : partials) {
+                String docName = "partial_"+ count++ +".xml";
+                LOG.debug("Creating document " + docName + " into collection " + TEMP_COLLECTION_NAME);
+                ByteArrayInputStream bais = new ByteArrayInputStream(partial.getBytes(),0,partial.getLength());
+                db.addDocumentToCollection(bais,docName,TEMP_COLLECTION_NAME);
+                LOG.debug("Creation suceeded!");
+                bais.close();
             }
 
             LOG.debug("loadPartialsIntoDb:time to create temp collection: " + (System.currentTimeMillis() - timestamp) + " ms.");
             timestamp = System.currentTimeMillis();
-
-            deleteTempDirectory(tempDir);
-
-            LOG.debug("loadPartialsIntoDb:time to delete temp local files: " + (System.currentTimeMillis() - timestamp) + " ms.");
-            timestamp = System.currentTimeMillis();
             
-        } catch (XQException e) {
+        } catch (Exception e) {
             e.printStackTrace();
             throw new IOException(e);
         }
@@ -466,34 +458,5 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         }
         
         return finalResultXquery;
-    }
-        
-        
-    private static File createTempDirectory() throws IOException {
-        final File temp;
-
-        temp = File.createTempFile("temp", Long.toString(System.nanoTime()), new File("/tmp"));
-
-        if(!(temp.delete()))
-        {
-            throw new IOException("Could not delete temp file: " + temp.getAbsolutePath());
-        }
-
-        if(!(temp.mkdir()))
-        {
-            throw new IOException("Could not create temp directory: " + temp.getAbsolutePath());
-        }
-
-        return (temp);
-    }
-    
-    private static void deleteTempDirectory(File tempDir) throws IOException {
-        
-        File[] innerFiles = tempDir.listFiles();
-        for(File f : innerFiles) {
-            f.delete();
-        }
-        
-        tempDir.delete();
     }
 }

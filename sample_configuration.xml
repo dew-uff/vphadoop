@@ -23,6 +23,10 @@
       <value>0</value>
   </property> 
 
+ <property>
+      <name>mapred.child.java.opts</name>
+      <value>-Xprof -Xmx512m</value>
+  </property>
   
   <!-- VPHADOOP configuration  -->
   

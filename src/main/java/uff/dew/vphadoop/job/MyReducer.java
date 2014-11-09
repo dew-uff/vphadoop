@@ -41,38 +41,42 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
             Context context)
             throws IOException, InterruptedException {
 
-        long startTimestamp = System.currentTimeMillis();
-        
-		// construct db object from configuration file 
+        long timestamp = System.currentTimeMillis(), startTimestamp = timestamp;
+
+        // construct db object from configuration file
         Configuration conf = context.getConfiguration();
-		try {
-		    DatabaseFactory.produceSingletonDatabaseObject(conf);
-		}
-		catch(Exception e) {
-		    throw new IOException("Something went wrong while reading database configuration values");
-		}
-		
+        try {
+            DatabaseFactory.produceSingletonDatabaseObject(conf);
+        }
+        catch(Exception e) {
+            throw new IOException("Something went wrong while reading database configuration values");
+        }
+
+        long instantiateTime = System.currentTimeMillis() - timestamp;
+        LOG.debug("Time to instantiate database object: " + instantiateTime + " ms.");
+        context.getCounter(VPCounters.COMPOSING_TIME_INSTANTIATE_TIME).increment(instantiateTime);
+        timestamp = System.currentTimeMillis();
+
         Database db = DatabaseFactory.getSingletonDatabaseObject();
-        
+
         // put every partial result in a temp collection at the database
         loadPartialsIntoDatabase(db, partials, context);
         
-        long loadingTimestamp = System.currentTimeMillis();
-        long dbLoadingTime = (loadingTimestamp - startTimestamp);
-        LOG.debug("VP:reducer:tempDBLoadingTime: " + dbLoadingTime + " ms.");
+        long dbLoadingTime = System.currentTimeMillis() - timestamp;
+        LOG.debug("Time to create temp collection in DB: " + dbLoadingTime + " ms.");
         context.getCounter(VPCounters.COMPOSING_TIME_TEMP_COLLECTION_CREATION).increment(dbLoadingTime);
+        timestamp = System.currentTimeMillis();
         
         // the constructFinalQuery (below) was originally executed using the same context
         // previously used to retrieve a partial result (at the coordinator node). 
         // That means that some singletons objects were populated when compiling the final 
         // result. Now we don't have that information, so we need to restore it.
         repopulateQueryAndSubQueryObjects(conf);      
-
-        long repopulateTimestamp = System.currentTimeMillis();
         
-        long repopulateTime = repopulateTimestamp - loadingTimestamp;
-        LOG.debug("VP:reducer:repopulate: " + repopulateTime + " ms.");
+        long repopulateTime = System.currentTimeMillis() - timestamp;
+        LOG.debug("Time to repopulate SVP framework objects: " + repopulateTime + " ms.");
         context.getCounter(VPCounters.COMPOSING_TIME_REPOPULATE_OBJECTS).increment(repopulateTime);
+        timestamp = System.currentTimeMillis();
         
         SubQuery sbq = SubQuery.getUniqueInstance(true);
         
@@ -107,15 +111,14 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         String footer = sbq.getConstructorElement().replace("<", "</");
         resultWriter.write(footer.getBytes());
             
-        long reduceQueryTimestamp = System.currentTimeMillis();
-        
-        long queryExecutionTime = (reduceQueryTimestamp - repopulateTimestamp);
-        LOG.debug("VP:reducer:query execution total time: " + queryExecutionTime + " ms.");
+        long queryExecutionTime = System.currentTimeMillis() - timestamp;
+        LOG.debug("Time to execute final query: " + queryExecutionTime + " ms.");
         context.getCounter(VPCounters.COMPOSING_TIME_TEMP_COLLECTION_QUERY_EXEC).increment(queryExecutionTime);
-        context.getCounter(VPCounters.COMPOSING_TIME).increment(dbLoadingTime + queryExecutionTime);
         
         resultWriter.flush();
         resultWriter.close();
+        
+        context.getCounter(VPCounters.COMPOSING_TIME_TOTAL).increment(System.currentTimeMillis() - startTimestamp);
     }
     
     // TODO HACK
@@ -190,9 +193,6 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
 
     private void loadPartialsIntoDatabase(Database db, Iterable<Text> partials, Context context) throws IOException {
         try {
-        	
-        	long timestamp = System.currentTimeMillis();
-        	
         	db.createCollection(TEMP_COLLECTION_NAME);
         	
             int count = 0;
@@ -204,10 +204,6 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
                 LOG.debug("Creation suceeded!");
                 bais.close();
             }
-
-            LOG.debug("loadPartialsIntoDb:time to create temp collection: " + (System.currentTimeMillis() - timestamp) + " ms.");
-            timestamp = System.currentTimeMillis();
-            
         } catch (Exception e) {
             e.printStackTrace();
             throw new IOException(e);

@@ -3,14 +3,13 @@ package uff.dew.vphadoop.test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileWriter;
 import java.util.Map;
 
+import org.apache.hadoop.conf.Configuration;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.catalog.Element;
 import uff.dew.vphadoop.db.Database;
 import uff.dew.vphadoop.db.DatabaseFactory;
@@ -20,7 +19,7 @@ public class SednaTest {
     private static String TEST_COLLECTION_NAME = "testCollection";
     
     /**
-     * Creates a db config file to access the Sedna DB
+     * Creates a db config to access the Sedna DB
      * 
      * IMPORTANT: The Sedna server should be up and running and there should be
      * a database there called "test", with a "auction" xml document from xmark,
@@ -30,22 +29,14 @@ public class SednaTest {
      */
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
-        File configFile = File.createTempFile("any", ".xml");
-        FileWriter fw = new FileWriter(configFile);
-        fw.write("<?xml version=\"1.0\"?> "
-                + "<vphadoop> "
-                + "<database> "
-                + "<type>SEDNA</type> "
-                + "<serverName>127.0.0.1</serverName> "
-                + "<portNumber>5050</portNumber> "
-                + "<userName>SYSTEM</userName> "
-                + "<userPassword>MANAGER</userPassword> "
-                + "<databaseName>test</databaseName>"
-                + "</database> "
-                + "</vphadoop>");
-        fw.close();
-        DatabaseFactory.produceSingletonDatabaseObject(new FileInputStream(
-                configFile));
+        Configuration conf = new Configuration();
+        conf.set(VPConst.DB_CONF_HOST, "127.0.0.1");
+        conf.set(VPConst.DB_CONF_PORT, "5050");
+        conf.set(VPConst.DB_CONF_USERNAME, "SYSTEM");
+        conf.set(VPConst.DB_CONF_PASSWORD, "MANAGER");
+        conf.set(VPConst.DB_CONF_DATABASE, "test");
+        conf.set(VPConst.DB_CONF_TYPE, "SEDNA");
+        DatabaseFactory.produceSingletonDatabaseObject(conf);
     }
 
     @Test

@@ -1,12 +1,17 @@
 package uff.dew.vphadoop.job;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import javax.xml.xquery.XQException;
 import javax.xml.xquery.XQResultSequence;
@@ -197,9 +202,24 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
             FileSystem fs = FileSystem.get(context.getConfiguration());
             int count = 0;
             for(Text filename : values) {
-                String localFilename = tempDir.getAbsolutePath()+"/partial_"+ count++ +".xml";
-                fs.copyToLocalFile(new Path(filename.toString()), new Path(localFilename));
 
+                LOG.debug("Extracting partial " + filename.toString() + ".");
+
+                BufferedInputStream is = new BufferedInputStream(fs.open(new Path(filename.toString())));
+                ZipInputStream zis = new ZipInputStream(is);
+                ZipEntry entry = zis.getNextEntry();
+                String localFilename = tempDir.getAbsolutePath()+"/"+entry.getName();
+                FileOutputStream fos = new FileOutputStream(localFilename);
+                final int BUFFER_SIZE = 2048;
+                BufferedOutputStream bos = new BufferedOutputStream(fos, BUFFER_SIZE);
+                byte[] buffer = new byte[BUFFER_SIZE];
+                while ((count = zis.read(buffer,0,BUFFER_SIZE)) != -1) {
+                    bos.write(buffer,0,count);
+                }
+                bos.flush();
+                bos.close();
+                
+                zis.close();
             }
             LOG.debug("loadPartialsIntoDb:time to copy from hdfs to local: " + (System.currentTimeMillis() - timestamp) + " ms.");
             timestamp = System.currentTimeMillis();

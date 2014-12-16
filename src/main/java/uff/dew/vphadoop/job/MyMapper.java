@@ -22,6 +22,8 @@ import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
 
+import uff.dew.vphadoop.VPConst;
+
 public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
 
     private static final Log LOG = LogFactory.getLog(MyMapper.class);
@@ -51,19 +53,35 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
         
         // execute query, saving result to a partial file in hdfs
         FileSystem fs = FileSystem.get(context.getConfiguration());
-        String zipFilename = PARTIALS_DIR + "/partial_" + key.toString() + "_" + context.getTaskAttemptID() + ".zip";
-        Path zipPath = new Path(zipFilename);
-        OutputStream zipFile = fs.create(zipPath);
+        
+        boolean zip = context.getConfiguration().getBoolean(VPConst.COMPRESS_DATA, true);
 
-        ZipOutputStream zipout = new ZipOutputStream(new BufferedOutputStream(zipFile));
-        ZipEntry entry = new ZipEntry("partial_" + key.toString() + ".xml");
-        zipout.putNextEntry(entry);
-        boolean hasResults = SubQuery.executeSubQuery(subquery, zipout);
-        zipout.close();
+        String filename = null;
+        Path filepath = null;
+        OutputStream out = null;
+        
+        if (zip) {
+            filename = PARTIALS_DIR + "/partial_" + key.toString() + "_" + context.getTaskAttemptID() + ".zip";
+            filepath = new Path(filename);
+            OutputStream zipFile = fs.create(filepath);
+    
+            ZipOutputStream zipout = new ZipOutputStream(new BufferedOutputStream(zipFile));
+            ZipEntry entry = new ZipEntry("partial_" + key.toString() + ".xml");
+            zipout.putNextEntry(entry);
+            out = zipout;
+        }
+        else {
+            filename = PARTIALS_DIR + "/partial_" + key.toString() + "_" + context.getTaskAttemptID() + ".xml";
+            filepath = new Path(filename);
+            out = fs.create(filepath);
+        }
+        
+        boolean hasResults = SubQuery.executeSubQuery(subquery, out);
+        out.close();
         
         // if it doesn't have results, delete the partial file
         if (!hasResults) {
-            fs.delete(zipPath, false);
+            fs.delete(filepath, false);
         }
         
         long timeProcessing = System.currentTimeMillis() - start;
@@ -73,7 +91,7 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
         if (hasResults) {
         	context.getCounter(VPCounters.PARTITIONS_WITH_RESULT).increment(1);
             // reducer will receive a list of filenames containing the fragments
-            context.write(NullWritable.get(), new Text(zipFilename));
+            context.write(NullWritable.get(), new Text(filename));
         }
     }
 

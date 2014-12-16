@@ -22,8 +22,42 @@
       <name>mapred.task.timeout</name>
       <value>0</value>
   </property> 
-
+<!--
+  <property>
+      <name>mapred.child.java.opts</name>
+      <value>-Xmx512m</value>
+  </property>
+ --> 
+  <property>
+      <name>mapred.map.child.java.opts</name>
+      <value>-Xmx512m</value>
+  </property>
   
+  <property>
+      <name>mapred.reduce.child.java.opts</name>
+      <value>-Xmx1024m</value>
+  </property>
+<!--  
+  <property>
+      <name>mapred.compress.map.output</name>
+      <value>true</value>
+  </property>
+
+  <property>
+      <name>mapred.map.output.compression.codec</name>
+      <value>org.apache.hadoop.io.compress.SnappyCodec</value>
+  </property>
+
+  <property>
+      <name>mapred.inmem.merge.threshold</name>
+      <value>0</value>
+  </property>
+
+  <property>
+      <name>io.sort.factor</name>
+      <value>5</value>
+  </property>
+-->  
   <!-- VPHADOOP configuration  -->
   
   <property>
@@ -65,5 +99,11 @@
       <name>vphadoop.db.type</name>
       <value>SEDNA</value>
   </property>  
+  
+  <property>
+      <name>vphadoop.compress</name>
+      <value>true</value>
+  </property>  
 
 </configuration>
+

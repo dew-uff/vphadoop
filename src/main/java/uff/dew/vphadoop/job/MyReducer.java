@@ -28,6 +28,7 @@ import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 
+import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.db.Database;
 import uff.dew.vphadoop.db.DatabaseFactory;
 
@@ -201,25 +202,35 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
             File tempDir = createTempDirectory();
             FileSystem fs = FileSystem.get(context.getConfiguration());
             int count = 0;
+            boolean zip = context.getConfiguration().getBoolean(VPConst.COMPRESS_DATA, true);
+
+            
             for(Text filename : values) {
-
-                LOG.debug("Extracting partial " + filename.toString() + ".");
-
-                BufferedInputStream is = new BufferedInputStream(fs.open(new Path(filename.toString())));
-                ZipInputStream zis = new ZipInputStream(is);
-                ZipEntry entry = zis.getNextEntry();
-                String localFilename = tempDir.getAbsolutePath()+"/"+entry.getName();
-                FileOutputStream fos = new FileOutputStream(localFilename);
-                final int BUFFER_SIZE = 2048;
-                BufferedOutputStream bos = new BufferedOutputStream(fos, BUFFER_SIZE);
-                byte[] buffer = new byte[BUFFER_SIZE];
-                while ((count = zis.read(buffer,0,BUFFER_SIZE)) != -1) {
-                    bos.write(buffer,0,count);
+                Path src = new Path(filename.toString());
+                if (zip) {
+                    LOG.debug("Extracting partial " + filename.toString() + ".");
+    
+                    BufferedInputStream is = new BufferedInputStream(fs.open(src));
+                    ZipInputStream zis = new ZipInputStream(is);
+                    ZipEntry entry = zis.getNextEntry();
+                    String localFilename = tempDir.getAbsolutePath()+"/"+entry.getName();
+                    FileOutputStream fos = new FileOutputStream(localFilename);
+                    final int BUFFER_SIZE = 2048;
+                    BufferedOutputStream bos = new BufferedOutputStream(fos, BUFFER_SIZE);
+                    byte[] buffer = new byte[BUFFER_SIZE];
+                    while ((count = zis.read(buffer,0,BUFFER_SIZE)) != -1) {
+                        bos.write(buffer,0,count);
+                    }
+                    bos.flush();
+                    bos.close();
+                    
+                    zis.close();
                 }
-                bos.flush();
-                bos.close();
-                
-                zis.close();
+                else {
+                    String localFilename = tempDir.getAbsolutePath()+"/partial_"+ count++ +".xml";
+                    Path dst = new Path(localFilename);
+                    fs.copyToLocalFile(src, dst);
+                }
             }
             LOG.debug("loadPartialsIntoDb:time to copy from hdfs to local: " + (System.currentTimeMillis() - timestamp) + " ms.");
             timestamp = System.currentTimeMillis();

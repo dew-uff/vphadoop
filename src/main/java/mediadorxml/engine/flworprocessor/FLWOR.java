@@ -385,6 +385,12 @@ public class FLWOR extends Clause{
 							}
 														
 							int cardinality = catalog.getCardinality(subXpath, documentName, collectionName);
+
+							//GABRIEL
+							// it seems that an error due to wrong parameters in get cardinality is ok
+							// in this case, acts like a 'break' for the loop.
+							if (cardinality == -1)
+							    throw new Exception();
 													
 							if (cardinality > 1){
 								

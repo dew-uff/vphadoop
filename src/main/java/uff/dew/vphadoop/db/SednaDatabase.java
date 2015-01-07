@@ -84,7 +84,7 @@ public class SednaDatabase extends BaseDatabase {
             result = Integer.parseInt(executeQueryAsString(query));            
         }
         catch (XQException e) {
-            e.printStackTrace();
+            LOG.error("Execution error in getCardinality! " + e.getMessage());
         }
         
         return result;

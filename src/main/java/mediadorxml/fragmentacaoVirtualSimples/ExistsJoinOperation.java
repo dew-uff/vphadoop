@@ -93,10 +93,14 @@ public class ExistsJoinOperation {
 		if (q.getqueryExprType()!=null && q.getqueryExprType().equals("collection")) {
 			collectionName = q.getCollectionNameByVariableName("$"+varJoin1);
 			collectionName2 = q.getCollectionNameByVariableName("$"+varJoin2);
-			
-		    cardinality = Integer.parseInt(ExecucaoConsulta.executeQuery("let $elm := collection('" + collectionName+ "')/" + q.getPathVariable("$"+varJoin1) + " return count($elm) "));
-		    cardinality2 = Integer.parseInt(ExecucaoConsulta.executeQuery("let $elm := collection('" + collectionName2+ "')/" + q.getPathVariable("$"+varJoin2) + " return count($elm) "));
-			
+
+            // GABRIEL
+            String cardStr = ExecucaoConsulta.executeQuery("let $elm := collection('" + collectionName+ "')/" + q.getPathVariable("$"+varJoin1) + " return count($elm) ");
+            String cardStr2 = ExecucaoConsulta.executeQuery("let $elm := collection('" + collectionName2+ "')/" + q.getPathVariable("$"+varJoin2) + " return count($elm) ");
+
+            cardinality = (cardStr != null && cardStr.length()>0)?Integer.parseInt(cardStr):-1;
+            cardinality2 = (cardStr2 != null && cardStr2.length()>0)?Integer.parseInt(cardStr2):-1;
+
 		}	
 		else {
 		

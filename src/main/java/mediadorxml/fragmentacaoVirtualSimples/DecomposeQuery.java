@@ -50,7 +50,13 @@ public class DecomposeQuery {
 	public ArrayList<String> getSubQueries(String xquery, String originalQuery, int posVariable, String collectionName, String varName) throws Exception {
 	    		
 	    String result = ExecucaoConsulta.executeQuery(xquery);	    
-	    String[] documentsName = result.split(",");	    
+	    String[] documentsName = result.split(",");
+
+	    //GABRIEL
+	    for(int i = 0; i < documentsName.length; i++) {
+	        documentsName[i] = documentsName[i].trim();
+	    }
+
 	    ArrayList<String> decomposedQueries = this.docQueries;    	
     	int posForClause = -1;
     	int posLetClause = -1;

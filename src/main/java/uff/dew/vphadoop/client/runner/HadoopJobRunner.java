@@ -85,8 +85,7 @@ public class HadoopJobRunner extends BaseJobRunner {
                 Catalog.get().populateCatalogFromFile(fis);
             } 
             catch (FileNotFoundException e) {
-                Catalog.get().createCatalog();
-                Catalog.get().saveCatalogToFile(catalogFile);
+                Catalog.get().setDbMode(true);
             }
         }
         else {

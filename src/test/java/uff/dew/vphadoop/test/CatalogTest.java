@@ -3,6 +3,7 @@ package uff.dew.vphadoop.test;
 import static org.junit.Assert.assertEquals;
 
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 
 import org.apache.hadoop.conf.Configuration;
 import org.junit.BeforeClass;
@@ -17,24 +18,14 @@ public class CatalogTest {
     
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
-        Configuration conf = new Configuration();
-        conf.set(VPConst.DB_CONF_HOST, "127.0.0.1");
-        conf.set(VPConst.DB_CONF_PORT, "1984");
-        conf.set(VPConst.DB_CONF_USERNAME, "admin");
-        conf.set(VPConst.DB_CONF_PASSWORD, "admin");
-        conf.set(VPConst.DB_CONF_DATABASE, "test");
-        conf.set(VPConst.DB_CONF_TYPE, "BASEX");
-        DatabaseFactory.produceSingletonDatabaseObject(conf);
-    }
-    
-    @Test
-    public void testSaveCatalogFile() throws Exception {
-        Database db = DatabaseFactory.getSingletonDatabaseObject();
         
-        Catalog catalog = Catalog.get();
-        catalog.setDatabaseObject(db);
-        catalog.createCatalog();
-        catalog.saveCatalogToFile("catalog-test.xml");
+        String[] resources = {"/home/gabriel/xmark/files/100MB/auction.xml"};
+        
+        Catalog c = Catalog.get();
+        c.createCatalogFromRawResources(resources);
+        FileOutputStream fos = new FileOutputStream("catalog-test.xml");
+        c.saveCatalog(fos);
+        fos.close();        
     }
     
     @Test
@@ -43,7 +34,7 @@ public class CatalogTest {
         Catalog catalog = Catalog.get();
         catalog.setDatabaseObject(db);
         catalog.populateCatalogFromFile(new FileInputStream("catalog-test.xml"));
-        assertEquals(25500,catalog.getCardinality("site/people/person", "auction", null));
+        assertEquals(25500,catalog.getCardinality("site/people/person", "auction.xml", null));
     }
 
 }

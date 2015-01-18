@@ -1,8 +1,7 @@
 package uff.dew.vphadoop.catalog;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.File;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,10 +24,12 @@ public class Catalog {
 	
 	private boolean dbMode = false;
 	
-	private Map<String,Element> elementsByPathMap;
-	private Map<Integer,Element> elementsByIdMap;
+	private Map<String,Document> documents;
+	private Map<String,Collection> collections;
 	
 	private Catalog() {
+	    documents = new HashMap<String,Document>();
+	    collections = new HashMap<String,Collection>();
 	}
 
 	public static Catalog get() {
@@ -41,52 +42,54 @@ public class Catalog {
 	public void setDatabaseObject(Database database) {
 		this.database = database;
 	}
-	
-	public void saveCatalogToFile(String catalogFile) {
-        if (elementsByPathMap == null) {
-        	LOG.error("Can't save catalog! There was a problem creating it.");
-            return;
-        }
-        
-        try {
-            FileOutputStream fos = new FileOutputStream(catalogFile);
-            StringBuilder content = new StringBuilder();
-            content.append("<?xml version=\"1.0\" ?>\n");
-            content.append("<catalog>\n");
 
-            for (Element e: elementsByPathMap.values()) {
-                content.append("<element id=\""+e.getId() +"\" name=\""+e.getName()+
-                        "\" count=\""+e.getCount()+"\" path=\""+e.getPath()+"\" parent=\""+
-                        (e.getParent()!=null?e.getParent().getId():-1)+"\"/>\n");
+    public int getCardinality(String xpath, String documentName, String collectionName) {
+        
+        LOG.debug("xpath: " + xpath);
+        
+        int cardinality = 0;
+        
+        if (dbMode == true || (documents == null && collections == null)) {
+            LOG.debug("Operating DB Mode!");
+            if (database != null) {
+                cardinality = database.getCardinality(xpath, documentName, collectionName);
             }
-            content.append("</catalog>");
-            fos.write(content.toString().getBytes());
-            fos.close();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
+            else {
+                LOG.error("Database object is null! Returning invalid cardinality!");
+                return -1;
+            }               
         }
-	}
+        else {
+            if (collectionName != null) {
+                Collection c = collections.get(collectionName);
+                if (c != null) {
+                    Document d = c.getDocument(documentName);
+                    if (d != null) {
+                        Element e = d.getElementByPath("/" + xpath);
+                        if (e != null) {
+                            cardinality = e.getCount();
+                        }
+                    }
+                }
+            }
+            else {
+                if (documentName != null) {
+                    Document d = documents.get(documentName);
+                    if (d != null) {
+                        Element e = d.getElementByPath("/" + xpath);
+                        if (e != null) {
+                            cardinality = e.getCount();
+                        }
+                    }
+                }
+            }
+        } 
 
-    public void createCatalog() {
-	    
-    	// get the map according to the specific database system
-	    elementsByPathMap = database.getCatalog();
-	    
-	    if (elementsByPathMap != null) {
-		    elementsByIdMap = new HashMap<Integer,Element>();
-	    	for (Element e : elementsByPathMap.values()) {
-	    		elementsByIdMap.put(new Integer(e.getId()), e);
-	    	}	    	
-	    }
+        return cardinality;
     }
-
-    public void populateCatalogFromFile(InputStream is) {
+	
+	public void populateCatalogFromFile(InputStream is) {
         
-    	elementsByPathMap = new HashMap<String, Element>();
-    	elementsByIdMap = new HashMap<Integer, Element>();
-    	
         try {
 			XMLInputFactory factory = XMLInputFactory.newInstance();
 			XMLStreamReader stream = factory.createXMLStreamReader(is);
@@ -97,42 +100,24 @@ public class Catalog {
 			    switch (type) {
 			    case XMLStreamReader.START_ELEMENT:
 			        
-			    	if (stream.getLocalName() == "element") {
-			        	
-			        	String idString = stream.getAttributeValue(null, "id");
-			            String name = stream.getAttributeValue(null, "name");
-			            String countString = stream.getAttributeValue(null, "count");
-			            String path = stream.getAttributeValue(null, "path");
-			            String parentString = stream.getAttributeValue(null, "parent");
+			        if (stream.getLocalName() == "document") {
 			            
-			            if (idString!= null && countString != null 
-			            		&& name != null && path != null 
-			            		&& parentString != null) {
-
-			            	int id = Integer.parseInt(idString);
-			            	int cardinality = Integer.parseInt(countString);
-			            	int parentId = Integer.parseInt(parentString);
-
-			            	Element element = new Element(id, name, cardinality, path);
-			            	element.setParentId(parentId);
-			            	elementsByIdMap.put(new Integer(id), element);
-			            	elementsByPathMap.put(path, element);
-			            }                    
+			            Document doc = new Document();
+			            doc.readFromCatalogStream(stream);
+                        documents.put(doc.getName(), doc);
+			        }
+			        else if (stream.getLocalName() == "collection") {
+			            
+			            Collection collection = new Collection();
+			            collection.readFromCatalogStream(stream);
+                        collections.put(collection.getName(), collection);
 			        }
 			        break;
 			    }
 			}
-			
-			// after getting all elements, still need to match parents nodes;
-			for (Element e : elementsByIdMap.values()) {
-				if (e.getParentId() != -1) {
-					e.setParent(elementsByIdMap.get(new Integer(e.getParentId())));
-				}
-			}
+
 		} catch (Exception e) {
 			LOG.error("Error parsing XML catalog! Won't use catalog!");
-	    	elementsByPathMap = null;
-	    	elementsByIdMap = null;			
 		}         
     }
     
@@ -140,32 +125,49 @@ public class Catalog {
     	this.dbMode = mode;
     }
     
-    public int getCardinality(String xpath, String document, String collection) {
+    public void createCatalogFromRawResources(String[] resources) throws Exception {
         
-    	LOG.debug("xpath: " + xpath);
-        
-        int cardinality = 0;
-        
-        if (dbMode == true || elementsByPathMap == null) {
-        	LOG.debug("Operating DB Mode!");
-    	    if (database != null) {
-    	    	cardinality = database.getCardinality(xpath, document, collection);
-    	    }
-    	    else {
-    	    	LOG.error("Database object is null! Returning invalid cardinality!");
-    	    	return -1;
-    	    }             	
-        }
-        else {
-        	Element element = elementsByPathMap.get("/"+xpath);
-            if (element == null) {
-            	cardinality = 0;
+        for (String res : resources) {
+
+            File resFile = new File(res);
+
+            if (!resFile.exists()) {
+                System.err.println("Resource \"" + res + "\" doesn't seem to exist. Skipping it");
+                // if it doesn't point to anywhere, skip it
+                continue;
+            }
+            
+            if (resFile.isDirectory()) {
+                Collection c = new Collection();
+                c.readFromRawDirectory(resFile);
+                collections.put(c.getName(), c);
             }
             else {
-            	cardinality = element.getCount();
-            }    
-        } 
-
-        return cardinality;
-	}
+                Document d = new Document();
+                d.readFromRawFile(resFile);
+                documents.put(d.getName(), d);
+            }
+        }
+    }
+    
+    public void saveCatalog(OutputStream os) throws Exception {
+        if (collections == null && documents == null) {
+            LOG.error("Can't save catalog! There was a problem creating it.");
+            return;
+        }
+        
+        StringBuilder content = new StringBuilder();
+        content.append("<?xml version=\"1.0\" ?>\n");
+        content.append("<catalog>\n");
+        
+        for (Document doc : documents.values()) {
+            content.append(doc.getAsXml());
+        }
+        
+        for (Collection collection : collections.values()) {
+            content.append(collection.getAsXml());
+        }
+        content.append("</catalog>");
+        os.write(content.toString().getBytes());
+    }
 }

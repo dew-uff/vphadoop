@@ -77,7 +77,16 @@ public class SednaDatabase extends BaseDatabase {
     
     @Override
     public int getCardinality(String xpath, String document, String collection) {
-        String query = "let $elm := doc('" + document + ((collection != null && collection.length() > 0)?("', '"+ collection):"") +"')/" + xpath + " return count($elm)";
+
+        String resource = document + ((collection != null && collection.length() > 0)?("', '"+ collection):"");
+        String resourceType = "doc";
+
+        if (document == null) {
+            // means we will be considering entire collection;
+            resource = collection;
+            resourceType = "collection";
+        }
+        String query = "let $elm := "+resourceType+"('" + resource +"')/" + xpath + " return count($elm)";
         
         int result = -1;
         try {

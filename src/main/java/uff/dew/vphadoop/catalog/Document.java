@@ -75,7 +75,7 @@ public class Document {
     }
     
     public void readFromCatalogStream(XMLStreamReader stream) throws Exception {
-        name = stream.getLocalName();
+        name = stream.getAttributeValue(null, "name");
         
         while (stream.hasNext()) {
             int type = stream.next();
@@ -137,8 +137,15 @@ public class Document {
         return sb.toString();
     }
 
-    public Element getElementByPath(String path) {
-        
-        return elementsByPathMap.get(path);
+    public int getCardinality(String path) {
+
+        int cardinality = 0;
+
+        Element e = elementsByPathMap.get(path);
+        if (e != null) {
+            cardinality = e.getCount();
+        }
+
+        return cardinality;
     }
 }

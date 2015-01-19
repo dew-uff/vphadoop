@@ -26,7 +26,7 @@ public class Catalog {
 	
 	private Map<String,Document> documents;
 	private Map<String,Collection> collections;
-	
+
 	private Catalog() {
 	    documents = new HashMap<String,Document>();
 	    collections = new HashMap<String,Collection>();
@@ -60,26 +60,18 @@ public class Catalog {
             }               
         }
         else {
+            xpath = "/" + xpath;
             if (collectionName != null) {
                 Collection c = collections.get(collectionName);
                 if (c != null) {
-                    Document d = c.getDocument(documentName);
-                    if (d != null) {
-                        Element e = d.getElementByPath("/" + xpath);
-                        if (e != null) {
-                            cardinality = e.getCount();
-                        }
-                    }
+                    cardinality = c.getCardinality(xpath, documentName);
                 }
             }
             else {
                 if (documentName != null) {
                     Document d = documents.get(documentName);
                     if (d != null) {
-                        Element e = d.getElementByPath("/" + xpath);
-                        if (e != null) {
-                            cardinality = e.getCount();
-                        }
+                        cardinality = d.getCardinality(xpath);
                     }
                 }
             }
@@ -89,7 +81,13 @@ public class Catalog {
     }
 	
 	public void populateCatalogFromFile(InputStream is) {
-        
+	    
+	    // drop any existing catalog information;
+	    documents = null;
+	    collections = null;
+	    documents = new HashMap<String,Document>();
+	    collections = new HashMap<String,Collection>();
+
         try {
 			XMLInputFactory factory = XMLInputFactory.newInstance();
 			XMLStreamReader stream = factory.createXMLStreamReader(is);
@@ -127,6 +125,12 @@ public class Catalog {
     
     public void createCatalogFromRawResources(String[] resources) throws Exception {
         
+        // drop any existing catalog information;
+        documents = null;
+        collections = null;
+        documents = new HashMap<String,Document>();
+        collections = new HashMap<String,Collection>();
+
         for (String res : resources) {
 
             File resFile = new File(res);

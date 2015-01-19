@@ -25,15 +25,6 @@ public class Collection {
         this.name = name;
     }
 
-    public void addDocument(Document d) throws Exception {
-        
-        if (documents.containsKey(d.getName())) {
-            throw new Exception("One document with name \"" + d.getName() + "\" already exists in collection ");
-        }
-        
-        documents.put(d.getName(), d);
-    }
-    
     public Document getDocument(String name) {
         return documents.get(name);
     }
@@ -66,7 +57,7 @@ public class Collection {
     }
 
     public void readFromCatalogStream(XMLStreamReader stream) throws Exception {
-        name = stream.getLocalName();
+        name = stream.getAttributeValue(null, "name");
         
         while (stream.hasNext()) {
             int type = stream.next();
@@ -86,6 +77,31 @@ public class Collection {
         }
     }
 
+    public int getCardinality(String path, String docName) {
+
+       int cardinality = 0; 
+
+       if (docName == null || docName.equals("") ) {
+           // means we are considering collection as a whole
+           for (Document doc : documents.values()) {
+               cardinality += doc.getCardinality(path);
+           }
+       }
+       else {
+           // means we are looking for a specific document only
+           Document doc = getDocument(docName);
+           if (doc != null) {
+               cardinality = doc.getCardinality(path);
+           } 
+           else {
+               // document does not exist
+               cardinality = -1;
+           }
+       }
+
+       return cardinality;
+    }
+
     public String getAsXml() {
         StringBuilder sb = new StringBuilder();
         
@@ -102,7 +118,4 @@ public class Collection {
         
         return sb.toString();
     }
-            
-            
-
 }

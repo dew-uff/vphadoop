@@ -3,10 +3,12 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamReader;
+import javax.xml.xquery.XQException;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -61,7 +63,7 @@ public class Catalog {
         }
         else {
             xpath = "/" + xpath;
-            if (collectionName != null) {
+            if (collectionName != null && collectionName.length() > 0) {
                 Collection c = collections.get(collectionName);
                 if (c != null) {
                     cardinality = c.getCardinality(xpath, documentName);
@@ -78,6 +80,56 @@ public class Catalog {
         } 
 
         return cardinality;
+    }
+    
+    public String getParentElement(String element, String collectionName, String docName) {
+        
+        String parent = "";
+        
+        if (dbMode == true || (documents == null && collections == null)) {
+            
+            String resource = (docName != null && docName.length() > 0)?docName:collectionName;
+            if (resource == null) {
+                return "";
+            }
+            String query = "for $n in doc('$schema_" + resource + "')//element"
+                    + " where $n/element/@name = \"" + element +"\""           
+                    + " return substring($n/@name,1)";
+            
+            if (database != null) {
+                try {
+                    parent = database.executeQueryAsString(query);
+                } catch (XQException e) {
+                    LOG.error("Something wrong while get parent element!!");                    
+                }
+            }
+            else {
+                LOG.error("Database object is null! Returning invalid cardinality!");
+            }    
+        }
+        else {
+            if (docName != null && docName.length() > 0) {
+                Document d = documents.get(docName);
+                if (d != null) {
+                    List<String> parents = d.getParentElements(element);
+                    if (parents != null) {
+                        // TODO solve this limitation
+                        parent = parents.get(0);
+                    }
+                }
+            }
+            else {
+                Collection c = collections.get(collectionName);
+                if (c != null) {
+                    List<String> parents = c.getParentElements(element);
+                    if (parents != null) {
+                        // TODO solve this limitation
+                        parent = parents.get(0);
+                    }
+                }
+            }
+        }
+        return parent;
     }
 	
 	public void populateCatalogFromFile(InputStream is) {

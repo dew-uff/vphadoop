@@ -4,9 +4,7 @@ import java.io.IOException;
 import java.util.Hashtable;
 
 import mediadorxml.algebra.basic.TreeNode;
-import mediadorxml.catalog.CatalogManager;
 import mediadorxml.engine.flworprocessor.Clause;
-import mediadorxml.fragmentacaoVirtualSimples.ExecucaoConsulta;
 import mediadorxml.fragmentacaoVirtualSimples.Query;
 import mediadorxml.fragmentacaoVirtualSimples.SimpleVirtualPartitioning;
 import mediadorxml.fragmentacaoVirtualSimples.SubQuery;
@@ -93,7 +91,6 @@ public class SimplePathExpr extends Clause {
 				if (!q.isElementConstructor() && !q.isAddedPredicate() && 
 						(q.getqueryExprType()==null || 
 						(q.getqueryExprType()!=null && !q.getqueryExprType().contains("collection")))) { // Se nao for o caminho xpath que representa a estrutura do resultado especificada pelo usurio, verifique a cardinalidade.
-					CatalogManager cm = CatalogManager.getUniqueInstance();				
 					this.xpath = q.getXpath();								
 					this.xpath = this.xpath + (this.xpath.equals("")? node.getText():"/"+node.getText());
 					q.setXpath(this.xpath);				
@@ -196,7 +193,6 @@ public class SimplePathExpr extends Clause {
 		}
 	}
 	
-	@SuppressWarnings("static-access")
 	public void analyzeAncestral(String collectionName, String docName, String varName, String element) throws IOException {
 		
 		Query q = Query.getUniqueInstance(true);
@@ -205,20 +201,7 @@ public class SimplePathExpr extends Clause {
 		String completePathTmp = "";
 		int cardinality = 0;		
 		
-		// A fragmentao somente ser possvel se algum ancestral imediato do elemento especificado tiver cardinalidade 1.
-		String xquery = " for $n in doc('$schema_" + (collectionName!=null && !collectionName.equals("")?collectionName:docName) + "')//element"
-					  + " where $n/element/@name = \"" + element +"\""
-					  + " and sum($n/@total_nodes) = 1"
-					  + " return substring($n/@name,1)";
-		
-		if (docName!=null && !docName.equals("")) { // se especificou o nome de um documento dentro de uma coleo. Ex.: doc('x.xml','y')
-			xquery = " for $n in doc('$schema_" + (collectionName!=null && !collectionName.equals("")?collectionName:docName) + "')//element"
-				   + " where $n/element/@name = \"" + element +"\""			  
-				   + " return substring($n/@name,1)";			
-		}		
-				
-		ExecucaoConsulta exc = new ExecucaoConsulta();
-		String parentNode = exc.executeQuery(xquery);
+		String parentNode = Catalog.get().getParentElement(element, collectionName, docName);
 		
 		if (docName!=null && !docName.equals("")) { 
 			cardinality = Catalog.get().getCardinality(parentNode, docName, collectionName);
@@ -240,10 +223,7 @@ public class SimplePathExpr extends Clause {
 				
 				cardinality = Catalog.get().getCardinality(q.getAncestralPath(), docName, collectionName);
 				
-				xquery = " for $n in doc('$schema_" + (collectionName!=null && !collectionName.equals("")?collectionName:docName) + "')//element"
-					   + " where $n/element/@name = \"" + parentNode +"\""
-				 	   + " return substring($n/@name,1)";
-				parentNode = exc.executeQuery(xquery);			
+				parentNode = Catalog.get().getParentElement(parentNode, collectionName, docName);
 			}			
 			
 			if (cardinality > 1) {
@@ -266,9 +246,6 @@ public class SimplePathExpr extends Clause {
 					}							
 				}
 				
-				xquery = "let $elm := doc('" + docName + "'" 
-				+ (collectionName!=null && !collectionName.equals("")?", '" + collectionName + "'":"") 
-				+ ")/" + (!completePath.equals("")?completePath+"/":completePath) + completePathTmp + " return count($elm)";
 				cardinality = Catalog.get().getCardinality((!completePath.equals("")?completePath+"/":completePath) + completePathTmp, docName, collectionName);
 				
 				SimpleVirtualPartitioning svp = SimpleVirtualPartitioning.getUniqueInstance(true);

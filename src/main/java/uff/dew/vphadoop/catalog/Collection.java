@@ -2,7 +2,9 @@ package uff.dew.vphadoop.catalog;
 
 import java.io.File;
 import java.io.FileFilter;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.xml.stream.XMLStreamReader;
@@ -117,5 +119,20 @@ public class Collection {
         }
         
         return sb.toString();
+    }
+
+    public List<String> getParentElements(String element) {
+        List<String> all = new ArrayList<String>();
+        for (Document doc : documents.values()) {
+            List<String> indoc = doc.getParentElements(element);
+            if (indoc != null) {
+                for (String parent : indoc) {
+                    if (!all.contains(parent)) {
+                        all.add(parent);
+                    }
+                }
+            }
+        }
+        return all;
     }
 }

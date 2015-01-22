@@ -85,6 +85,28 @@ public interface Database {
     public int getCardinality(String xpath, String document, String collection);
     
     /**
+     * Return the elements to which the given element is subelement.
+     * Ex: if element is "person" and there are paths like
+     *     "/site/people/person" and "/department/person", this method returns
+     *     {"people","department"}
+     * 
+     * @param elementName the element identifier
+     * @param collectionName the collection name in which the elementName is present. If
+     * collectionName is null, the documentName should not be null
+     * @param docName the document in which the elementName is present. If collection != null, this
+     * parameter is ignored.                  
+     * @return an array containing all the names of parent elements
+     */
+    public String[] getParentElement(String elementName, String collectionName, String docName);
+    
+    /**
+     * Returns the documents inside the given collection
+     * @param collectionName
+     * @return an array containing all the documents names
+     */
+    public String[] getDocumentsNamesForCollection(String collectionName);
+    
+    /**
      * Function to release all resources used to execute a query.
      * Need to be called after using executeQuery which returns a 
      * {@link XQResultSequence} object.

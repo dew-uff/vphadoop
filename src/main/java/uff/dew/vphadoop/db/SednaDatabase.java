@@ -3,7 +3,9 @@ package uff.dew.vphadoop.db;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.xml.stream.XMLStreamException;
@@ -11,11 +13,12 @@ import javax.xml.stream.XMLStreamReader;
 import javax.xml.xquery.XQException;
 import javax.xml.xquery.XQResultSequence;
 
+import net.xqj.basex.BaseXXQDataSource;
+import net.xqj.sedna.SednaXQDataSource;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import net.xqj.basex.BaseXXQDataSource;
-import net.xqj.sedna.SednaXQDataSource;
 import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.catalog.Element;
 
@@ -218,5 +221,57 @@ public class SednaDatabase extends BaseDatabase {
         }            
         
         return map;
+    }
+
+    @Override
+    public String[] getParentElement(String elementName, String collectionName,
+            String docName) {
+        
+        String resource = (collectionName != null && collectionName.length() > 0)?collectionName:docName;
+        
+        if (resource == null) {
+            return null;
+        }
+        
+        String query = "for $n in doc('$schema_" + resource + "')//element"
+                + " where $n/element/@name = \"" + elementName +"\""           
+                + " return substring($n/@name,1)";
+
+        String[] result = null;
+        
+        try {
+            XQResultSequence rs = executeQuery(query);
+            if (rs != null) {
+                List<String> allParents = new ArrayList<String>();
+                while(rs.next()) {
+                    allParents.add(rs.getItemAsString(null).trim());
+                }
+                freeResources(rs);
+                if (allParents.size() > 0) {
+                    result = allParents.toArray(new String[0]);
+                }
+            }
+        } catch (XQException e) {
+            LOG.error("Something wrong while get parent element!!");                    
+        }
+        
+        return result;
+    }
+
+    @Override
+    public String[] getDocumentsNamesForCollection(String collectionName) {
+        String query = "for $c in doc('$documents')//collection[@name='"+collectionName+"']/document/@name return concat( substring($c,1),',')";
+        
+        String[] documents = null;
+        try {
+            String result = executeQueryAsString(query);
+            documents = result.split(",");
+            for(int i = 0; i < documents.length; i++) {
+                documents[i] = documents[i].trim();
+            }
+        } catch (XQException e) {
+            LOG.error("Something wrong while getting documents names for collection!!");                    
+        }
+        return documents;
     }
 }

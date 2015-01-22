@@ -135,4 +135,13 @@ public class Collection {
         }
         return all;
     }
+
+    public Document[] getDocuments() {
+        if (!documents.isEmpty()) {
+            Document[] docs = new Document[documents.size()];
+            documents.values().toArray(docs);
+            return docs;
+        }
+        return null;
+    }
 }

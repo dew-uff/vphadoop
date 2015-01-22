@@ -19,7 +19,7 @@ import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.catalog.Catalog;
 import uff.dew.vphadoop.db.DatabaseFactory;
 
-public class IncompletePathTest {
+public class IncompletePathDocumentTest {
     
     private static final String QUERY_WITH_INCOMPLETE_PATH = 
             " <results> \r\n" +
@@ -32,7 +32,33 @@ public class IncompletePathTest {
             " } \r\n"+ 
             " </results>"; 
     
-    private static final String QUERY = QUERY_WITH_INCOMPLETE_PATH;
+    private static final String QUERY_WITH_JOIN = 
+           "<results> \r\n"
+           + "{ \r\n"
+           + "  for $p in doc('auction.xml')/site/people/person \r\n"
+           + "  for $a in doc('auction.xml')/site/closed_auctions/closed_auction \r\n"
+           + "  where $p/@id = $a/@person \r\n"
+           + "      return \r\n"
+           + "        <buyer> \r\n"
+           + "          {$p/name} \r\n"
+           + "          {$a/price} \r\n"
+           + "        </buyer> \r\n"
+           + "    } </results>";
+
+    private static final String QUERY_WITH_JOIN_AND_INCOMPLETE_PATH = 
+            "<results> \r\n"
+            + "{ \r\n"
+            + "  for $p in doc('auction.xml')//person \r\n"
+            + "  for $a in doc('auction.xml')//closed_auction \r\n"
+            + "  where $p/@id = $a/@person \r\n"
+            + "      return \r\n"
+            + "        <buyer> \r\n"
+            + "          {$p/name} \r\n"
+            + "          {$a/price} \r\n"
+            + "        </buyer> \r\n"
+            + "    } </results>";
+    
+    private static final String QUERY = QUERY_WITH_JOIN_AND_INCOMPLETE_PATH;
 
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
@@ -56,6 +82,7 @@ public class IncompletePathTest {
             
             Query q = Query.getUniqueInstance(true);
             q.setInputQuery(query);
+            q.setqueryExprType(query);
             
             SimpleVirtualPartitioning svp = SimpleVirtualPartitioning.getUniqueInstance(false);
             svp.setNumberOfNodes(3);
@@ -101,6 +128,7 @@ public class IncompletePathTest {
             
             Query q = Query.getUniqueInstance(true);
             q.setInputQuery(query);
+            q.setqueryExprType(query);
             
             SimpleVirtualPartitioning svp = SimpleVirtualPartitioning.getUniqueInstance(false);
             svp.setNumberOfNodes(3);

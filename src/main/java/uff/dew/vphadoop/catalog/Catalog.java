@@ -8,7 +8,6 @@ import java.util.Map;
 
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamReader;
-import javax.xml.xquery.XQException;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -88,19 +87,11 @@ public class Catalog {
         
         if (dbMode == true || (documents == null && collections == null)) {
             
-            String resource = (docName != null && docName.length() > 0)?docName:collectionName;
-            if (resource == null) {
-                return "";
-            }
-            String query = "for $n in doc('$schema_" + resource + "')//element"
-                    + " where $n/element/@name = \"" + element +"\""           
-                    + " return substring($n/@name,1)";
-            
             if (database != null) {
-                try {
-                    parent = database.executeQueryAsString(query);
-                } catch (XQException e) {
-                    LOG.error("Something wrong while get parent element!!");                    
+                String[] allParents = database.getParentElement(element, collectionName, docName);
+                if (allParents != null) {
+                    // TODO solve this limitation
+                    parent = allParents[0];
                 }
             }
             else {
@@ -122,7 +113,7 @@ public class Catalog {
                 Collection c = collections.get(collectionName);
                 if (c != null) {
                     List<String> parents = c.getParentElements(element);
-                    if (parents != null) {
+                    if (parents != null && !parents.isEmpty()) {
                         // TODO solve this limitation
                         parent = parents.get(0);
                     }
@@ -130,6 +121,38 @@ public class Catalog {
             }
         }
         return parent;
+    }
+    
+    public String[] getDocumentsNamesForCollection(String collectionName) {
+        
+        if (collectionName == null || collectionName.length() == 0) {
+            LOG.warn("Trying to get documents with null or empty collection identifier!");
+            return null;
+        }
+        
+        String[] documents = null;
+        if (dbMode == true || (documents == null && collections == null)) {
+            if (database != null) {
+                documents = database.getDocumentsNamesForCollection(collectionName);
+            }
+            else {
+                LOG.error("Database object is null! Returning null !");
+            }    
+        }
+        else {
+            Collection c = collections.get(collectionName);
+            if (c != null) {
+                Document[] docs = c.getDocuments();
+                if (docs != null) {
+                    documents = new String[docs.length];
+                    for (int i=0; i< docs.length; i++) {
+                        documents[i] = docs[i].getName();
+                    }                    
+                }
+            }
+        }
+        
+        return documents;
     }
 	
 	public void populateCatalogFromFile(InputStream is) {

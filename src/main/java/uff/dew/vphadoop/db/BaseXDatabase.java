@@ -170,4 +170,17 @@ public class BaseXDatabase extends BaseDatabase {
         
         return map;
     }
+
+    @Override
+    public String[] getParentElement(String elementName, String collectionName,
+            String docName) {
+        // TODO implement this
+        return null;
+    }
+
+    @Override
+    public String[] getDocumentsNamesForCollection(String collectionName) {
+        // TODO implement this
+        return null;
+    }
 }

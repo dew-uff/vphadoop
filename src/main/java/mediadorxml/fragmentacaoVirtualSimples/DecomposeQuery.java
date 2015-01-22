@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Hashtable;
 
-import mediadorxml.catalog.CatalogManager;
 import uff.dew.vphadoop.catalog.Catalog;
 
 public class DecomposeQuery {
@@ -49,13 +48,7 @@ public class DecomposeQuery {
 	
 	public ArrayList<String> getSubQueries(String xquery, String originalQuery, int posVariable, String collectionName, String varName) throws Exception {
 	    		
-	    String result = ExecucaoConsulta.executeQuery(xquery);	    
-	    String[] documentsName = result.split(",");
-
-	    //GABRIEL
-	    for(int i = 0; i < documentsName.length; i++) {
-	        documentsName[i] = documentsName[i].trim();
-	    }
+	    String[] documentsName = Catalog.get().getDocumentsNamesForCollection(collectionName);
 
 	    ArrayList<String> decomposedQueries = this.docQueries;    	
     	int posForClause = -1;
@@ -318,16 +311,21 @@ public class DecomposeQuery {
 	}
 	
 	
-public String analyzeAncestral(String collectionName, String docName, String varName, String element) throws IOException{
+public int analyzeAncestral(String collectionName, String docName, String varName, String element) throws IOException{
 		
-		CatalogManager cm = CatalogManager.getUniqueInstance();
 		Query q = Query.getUniqueInstance(true);
+		
+		// GABRIEL
+		// all catalog queries in this method do not use docName, although a valid value is passed
+		// i am keeping it the way it was implemented, setting docName to null
+		// TODO investigate this
+		docName = null;
 				
 		this.setLastCompleteOriginalPath(element);
 				
 		String completePath = "";
 		String completePathTmp = "";
-		String cardinality = "0";
+		int cardinality = 0;
 		String addedPath = "";
 		int posSlash = -1;
 		
@@ -339,30 +337,20 @@ public String analyzeAncestral(String collectionName, String docName, String var
 			completePath = element; // Ex.: person.
 		}
 		
-		// A fragmentao somente ser possvel se algum ancestral imediato do elemento especificado tiver cardinalidade 1.
-		String xquery = " for $n in doc('$schema_" + collectionName + "')//element"
-					  + " where $n/element/@name = \"" + completePath +"\""		
-					  + " return substring($n/@name,1)";
-		
-		ExecucaoConsulta exc = new ExecucaoConsulta();
-		String parentNode = exc.executeQuery(xquery);
+		String parentNode = Catalog.get().getParentElement(element, collectionName, null); // does not use docname
 		completePath = element;
 				
 		if ( parentNode!= null && !parentNode.equals("") && !parentNode.contains("Erro") ) {
 			
 			// enquanto a cardinalidade for zero, indica que ainda nao encontramos todos os ancestrais do elemento especificado na consulta
-			while ( parentNode!= null && !parentNode.equals("") && !parentNode.contains("Erro") && Integer.parseInt(cardinality) == 0){
+			while ( parentNode!= null && !parentNode.equals("") && !parentNode.contains("Erro") && cardinality == 0){
 				
 				completePath = parentNode + "/" + completePath;
 				//completePathTmp = parentNode + "/" + completePathTmp;
 				addedPath = parentNode + (!addedPath.equals("")?"/"+addedPath:addedPath);
 				
-				xquery = "let $elm := collection('" + collectionName + "')/" + completePath + " return count($elm)";
-				cardinality = ExecucaoConsulta.executeQuery(xquery);
-				xquery = " for $n in doc('$schema_" + collectionName + "')//element"
-					   + " where $n/element/@name = \"" + parentNode +"\""
-				 	   + " return substring($n/@name,1)";
-				parentNode = exc.executeQuery(xquery);				
+				cardinality = Catalog.get().getCardinality(completePath, null, collectionName); // does not use docname
+				parentNode = Catalog.get().getParentElement(parentNode, collectionName, null);
 			}		
 						
 			String value = "";
@@ -383,9 +371,9 @@ public String analyzeAncestral(String collectionName, String docName, String var
 			
 			// se a cardinalidade do ultimo elemento for maior que 1, verificar o caminho completo para identificar
 			// o primeiro elemento com ordem N que possui pai com ordem 1.
-			if ( Integer.parseInt(cardinality) > 1 ) {
+			if ( cardinality > 1 ) {
 				
-				while (Integer.parseInt(cardinality) > 1 && !completePath.equals("")) {				
+				while (cardinality > 1 && !completePath.equals("")) {				
 				
 					posSlash = completePath.lastIndexOf("/");
 					
@@ -393,29 +381,23 @@ public String analyzeAncestral(String collectionName, String docName, String var
 						// Ex.:    for $it in doc('xmlDataBaseXmark.xml')/site/regions/australia/item/name
 						completePathTmp = completePath.substring(posSlash+1, completePath.length()) + "/" + completePathTmp; // Ex.: name
 						completePath = completePath.substring(0, posSlash); // Ex.: /site/regions/australia/item
-						xquery = "let $elm := collection('" + collectionName + "')/" + completePath + " return count($elm)";						
-						cardinality = ExecucaoConsulta.executeQuery(xquery);
-			
+						cardinality = Catalog.get().getCardinality(completePath, null, collectionName);
 					}
 					else {
-			
 						if (completePathTmp.charAt(completePathTmp.length()-1) == '/') {
 							completePathTmp = completePathTmp.substring(0, completePathTmp.length()-1);
 						}
-						
-						xquery = "let $elm := collection('" + collectionName + "')/" + (!completePath.equals("")?completePath+"/":completePath) + completePathTmp + " return count($elm)";						
-						cardinality = ExecucaoConsulta.executeQuery(xquery);
+						cardinality = Catalog.get().getCardinality((!completePath.equals("")?completePath+"/":completePath) + completePathTmp, null, collectionName);
 						completePath = ""; 
 					}							
-					
 				}		
 				
 				String partitioningPath = (!completePath.equals("")?completePath+"/":completePath) + completePathTmp;	
 				
 				if (!completePath.equals("")){
-					xquery = "let $elm := collection('" + collectionName + "')/" + (!completePath.equals("")?completePath+"/":completePath) + completePathTmp + " return count($elm)";
-					cardinality = ExecucaoConsulta.executeQuery(xquery);
+				    cardinality = Catalog.get().getCardinality((!completePath.equals("")?completePath+"/":completePath) + completePathTmp, null, collectionName);
 				}
+				
 				int posBeginning = -1;
 				posBeginning = partitioningPath.indexOf("/" + addedPath + "/");
 				
@@ -428,7 +410,7 @@ public String analyzeAncestral(String collectionName, String docName, String var
 					partitioningPath = partitioningPath.replace("/" + addedPath+"/", "");
 				}			
 							
-				setCardinality(varName, partitioningPath, Integer.parseInt(cardinality));			
+				setCardinality(varName, partitioningPath, cardinality);			
 			}
 			else {
 				

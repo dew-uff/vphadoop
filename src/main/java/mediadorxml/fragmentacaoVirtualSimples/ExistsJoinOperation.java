@@ -3,7 +3,6 @@ package mediadorxml.fragmentacaoVirtualSimples;
 import java.io.IOException;
 import java.util.Hashtable;
 
-import mediadorxml.catalog.CatalogManager;
 import uff.dew.vphadoop.catalog.Catalog;
 
 public class ExistsJoinOperation {
@@ -168,7 +167,6 @@ public class ExistsJoinOperation {
 	
 	public int analyzeAncestral(String collectionName, String docName, String varName, String element) throws IOException {
 		
-		CatalogManager cm = CatalogManager.getUniqueInstance();
 		Query q = Query.getUniqueInstance(true);
 		
 		String completePath = "";
@@ -185,14 +183,7 @@ public class ExistsJoinOperation {
 			completePath = element; // Ex.: person.
 		}
 		
-		// A fragmentao somente ser possvel se algum ancestral imediato do elemento especificado tiver cardinalidade 1.
-		String xquery = " for $n in doc('$schema_" + (collectionName!=null && !collectionName.equals("")?collectionName:docName) + "')//element"
-					  + " where $n/element/@name = \"" + completePath +"\""
-					  + " and sum($n/@total_nodes) = 1"
-					  + " return substring($n/@name,1)";
-		
-		ExecucaoConsulta exc = new ExecucaoConsulta();
-		String parentNode = exc.executeQuery(xquery);
+	    String parentNode = Catalog.get().getParentElement(element, collectionName, docName);
 		completePath = element;
 		
 		if ( parentNode!= null && !parentNode.equals("") && !parentNode.contains("Erro") ) {
@@ -205,11 +196,7 @@ public class ExistsJoinOperation {
 				addedPath = parentNode + (!addedPath.equals("")?"/"+addedPath:addedPath);
 				cardinality = Catalog.get().getCardinality(completePath, docName, collectionName);
 				
-				xquery = " for $n in doc('$schema_" + (collectionName!=null && !collectionName.equals("")?collectionName:docName) + "')//element"
-					   + " where $n/element/@name = \"" + parentNode +"\""
-				 	   + " return substring($n/@name,1)";
-				parentNode = exc.executeQuery(xquery);			
-		
+				parentNode = Catalog.get().getParentElement(parentNode, collectionName, docName);
 			}		
 			
 			// se a cardinalidade do ultimo elemento for maior que 1, verificar o caminho completo para identificar

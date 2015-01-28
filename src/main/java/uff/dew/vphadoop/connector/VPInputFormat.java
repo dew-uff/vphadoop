@@ -82,7 +82,7 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
             List<String> qs = new ArrayList<>(nrecords);
             for (int j = 0; j < nrecords; j++) {
                 qs.add(queries.get(qcount));
-                LOG.debug("Split["+i+"]Record["+j+"] = Queries["+qcount+"] = " + queries.get(qcount));
+                LOG.trace("Split["+i+"]Record["+j+"] = Queries["+qcount+"] = " + queries.get(qcount));
                 qcount++;
             }
             int initialPos = Integer.parseInt(SubQuery.getIntervalBeginning(queries.get(0)));

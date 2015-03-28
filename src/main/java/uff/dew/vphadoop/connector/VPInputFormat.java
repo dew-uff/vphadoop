@@ -203,7 +203,10 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
     private List<String> getQueries() throws IOException {
         
         Query q = Query.getUniqueInstance(true);
-        SubQuery sbq = SubQuery.getUniqueInstance(true);        
+        SubQuery sbq = SubQuery.getUniqueInstance(true);       
+        
+        SimpleVirtualPartitioning svp = SimpleVirtualPartitioning.getUniqueInstance(true);
+        LOG.info("Cardinality of selected element: " + svp.getCardinalityOfElement());
         
         if ( sbq.getSubQueries()!=null && sbq.getSubQueries().size() > 0 ){
             

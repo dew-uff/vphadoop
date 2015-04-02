@@ -76,6 +76,14 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         List<InputSplit> splits = new ArrayList<InputSplit>();
 
         List<String> queries = new ArrayList<String>(getQueries());
+        
+        // this is to avoid getting consecutive intervals processed in the same machine.
+        // when we allocate a split to be processed in a task, if there is more than one 
+        // record in each split, in terms of load balancing, that would be the same as having
+        // a bigger split with all records merged. if there were a significant amount of data
+        // in this interval, this processor would take more time, no matter what.
+        Collections.shuffle(queries);
+
         int qcount = 0;
         
         for (int i = 0; i < nsplits; i++) {

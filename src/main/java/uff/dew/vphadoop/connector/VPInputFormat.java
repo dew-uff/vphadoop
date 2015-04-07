@@ -1,22 +1,13 @@
 package uff.dew.vphadoop.connector;
 
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-
-import mediadorxml.engine.XQueryEngine;
-import mediadorxml.fragmentacaoVirtualSimples.ExistsJoinOperation;
-import mediadorxml.fragmentacaoVirtualSimples.Query;
-import mediadorxml.fragmentacaoVirtualSimples.SimpleVirtualPartitioning;
-import mediadorxml.fragmentacaoVirtualSimples.SubQuery;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.InputFormat;
@@ -25,20 +16,17 @@ import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
+import uff.dew.svp.Partitioner;
+import uff.dew.svp.fragmentacaoVirtualSimples.SubQuery;
 import uff.dew.vphadoop.VPConst;
 
 public class VPInputFormat extends InputFormat<IntWritable, Text> {
     
     private static final Log LOG = LogFactory.getLog(VPInputFormat.class);
-    private ArrayList<String> docQueries;
-    private ArrayList<String> docQueriesWithoutFragmentation;
-    private String originalQuery;
     private String inputQuery;
     private int nsplits = 10;
     private int nrecords = 5;
     private int nfragments = 50;
-    private String xquery;
-    private XQueryEngine engine;
 
     @Override
     public RecordReader<IntWritable, Text> createRecordReader(InputSplit in,
@@ -51,6 +39,8 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
     public List<InputSplit> getSplits(JobContext ctxt) throws IOException,
             InterruptedException {
 
+        List<InputSplit> splits = null;
+        
         Configuration conf = ctxt.getConfiguration();
         
         // the query to process
@@ -60,190 +50,89 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
         
         nfragments = nsplits * nrecords;
         
-        long start = System.currentTimeMillis();
-        
         try {
-        	// to mimic PartiX-VP flow.
-            svpPressed();
-        } 
-        catch (Exception e) {
+            long start = System.currentTimeMillis();
+            String catalogPath = conf.get(VPConst.CATALOG_FILE_PATH);
+            
+            Partitioner partitioner = null;
+            if (catalogPath != null && catalogPath.length() > 0) {
+                LOG.debug("partitioner catalog mode!");
+                FileInputStream catalogStream = new FileInputStream(catalogPath);
+                partitioner = new Partitioner(catalogStream);
+            } else {
+                LOG.debug("partitioner database mode!");
+                partitioner = createPartitionerDbMode(conf);
+            }
+
+            List<String> queries = partitioner.executePartitioning(inputQuery,
+                    nfragments);
+
+            long partitionTime = System.currentTimeMillis() - start;
+            LOG.info("VP:partitioningTime: " + partitionTime + "ms");
+            
+            splits = new ArrayList<InputSplit>();
+
+            int qcount = 0;
+            
+            for (int i = 0; i < nsplits; i++) {
+                List<String> qs = new ArrayList<>(nrecords);
+                for (int j = 0; j < nrecords; j++) {
+                    qs.add(queries.get(qcount));
+                    LOG.trace("Split["+i+"]Record["+j+"] = Queries["+qcount+"] = " + queries.get(qcount));
+                    qcount++;
+                }
+                int initialPos = Integer.parseInt(SubQuery.getIntervalBeginning(queries.get(0)));
+                InputSplit is = new VPInputSplit(initialPos, qs);
+                splits.add(is);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
             throw new IOException(e);
         }
-        
-        long partitionTime = System.currentTimeMillis() - start;
-        
-        LOG.info("VP:partitioningTime: " + partitionTime + "ms");
-        
-        List<InputSplit> splits = new ArrayList<InputSplit>();
 
-        List<String> queries = new ArrayList<String>(getQueries());
-        
-        // this is to avoid getting consecutive intervals processed in the same machine.
-        // when we allocate a split to be processed in a task, if there is more than one 
-        // record in each split, in terms of load balancing, that would be the same as having
-        // a bigger split with all records merged. if there were a significant amount of data
-        // in this interval, this processor would take more time, no matter what.
-        Collections.shuffle(queries);
-
-        int qcount = 0;
-        
-        for (int i = 0; i < nsplits; i++) {
-            List<String> qs = new ArrayList<>(nrecords);
-            for (int j = 0; j < nrecords; j++) {
-                qs.add(queries.get(qcount));
-                LOG.trace("Split["+i+"]Record["+j+"] = Queries["+qcount+"] = " + queries.get(qcount));
-                qcount++;
-            }
-            int initialPos = Integer.parseInt(SubQuery.getIntervalBeginning(queries.get(0)));
-            InputSplit is = new VPInputSplit(initialPos, qs);
-            splits.add(is);
-        }
-        
-        //TODO HACK
-        FileSystem fs = FileSystem.get(conf);
-        Path hack2 = new Path("hack2.txt");
-        if (fs.exists(hack2)) {
-        	fs.delete(hack2, false);
-        }
-        OutputStream hack = fs.create(new Path("hack.txt"));
-        hack.write(queries.get(0).getBytes());
-        hack.close();
-        
         LOG.debug("# of splits: " + splits.size());
         
         return splits;
     }
 
-    private void xqueryPressed() throws Exception {
-        
-        Query q = Query.getUniqueInstance(true);
-        
-        /* Define o tipo de consulta (collection() ou doc()) e, caso seja sobre uma coleção 
-         * retorna as sub-consultas geradas, armazenando-as no objeto docQueries.
-         */
-        q.setInputQuery(inputQuery);
-        docQueries = q.setqueryExprType(inputQuery);
-        
-        if ( docQueries!=null && docQueries.size() > 0 ){ // é diferente de null, quando consulta de entrada for sobre uma coleção
-            
-            docQueriesWithoutFragmentation = docQueries;                                
+    private Partitioner createPartitionerDbMode(Configuration conf) throws Exception {
+        String type = conf.get(VPConst.DB_CONF_TYPE);
+        if (type == null) {
+            throw new Exception("SGBDX type not specified in job configuration file");
         }
-        else if (q.getqueryExprType()!=null && q.getqueryExprType().equals("document")) { // consulta de entrada sobre um documento. 
-            q.setInputQuery(inputQuery);
+        
+        String hostname = conf.get(VPConst.DB_CONF_HOST);
+        if (hostname == null) {
+            throw new Exception("SGBDX host not specified in job configuration file");
         }
-        else if (q.getqueryExprType()!=null && q.getqueryExprType().equals("collection")) { // consulta de entrada sobre uma coleção.
-           throw new IOException("Erro ao gerar sub-consultas para a coleção indicada. Verifique a consulta de entrada.");
+        
+        String portstr = conf.get(VPConst.DB_CONF_PORT);
+        if (portstr == null) {
+            throw new Exception("SGBDX port not specified in job configuration file");
         }
-    }
+        int port = -1;
+        try {
+            port = Integer.parseInt(portstr);
+        }
+        catch (NumberFormatException e) {
+            throw new Exception("SGBDX port specified is not a number");
+        }
+        
+        String username = conf.get(VPConst.DB_CONF_USERNAME);
+        if (username == null) {
+            throw new Exception("SGBDX username not specified in job configuration file");
+        }
 
-    private void svpPressed() throws Exception {
-        
-        xqueryPressed();
-        
-        SimpleVirtualPartitioning svp = SimpleVirtualPartitioning.getUniqueInstance(false);
-        Query q = Query.getUniqueInstance(true);
-        if (q.getqueryExprType()!=null && q.getqueryExprType().equals("collection")){
-            
-            if (docQueries!=null){
-                
-                originalQuery = inputQuery;
-                for (String docQry : docQueries) {
-                    
-                    inputQuery = docQry;
-                    
-                    executeXQuery();                                            
-                }
-                
-               inputQuery = originalQuery;
-            }
+        String password = conf.get(VPConst.DB_CONF_PASSWORD);
+        if (password == null) {
+            throw new Exception("SGBDX password not specified in job configuration file");
         }
-        else {
-            svp.setNumberOfNodes(nfragments);
-            svp.setNewDocQuery(true);                                                       
-            executeXQuery();                            
-        }
-    }
-    
 
-    private void executeXQuery() throws IOException {
-        
-        ExistsJoinOperation ej = new ExistsJoinOperation(inputQuery);
-        ej.verifyInputQuery();
-        Query q = Query.getUniqueInstance(true);
-        q.setLastReadCardinality(-1);
-        q.setJoinCheckingFinished(false);               
-        
-        
-        if ((xquery == null) || (!xquery.equals(inputQuery))){ 
-            xquery = inputQuery; //  consulta de entrada                  
-        }       
-        
-        
-        if ( q.getqueryExprType()!= null && !q.getqueryExprType().contains("collection") ) { // se a consulta de entrada não contém collection, execute a fragmentação virtual.
-        
-            engine = new XQueryEngine();
-            engine.execute(xquery, false); // Para debugar o parser, passe o segundo parâmetro como true.                
-            
-            q.setJoinCheckingFinished(true);
-            
-            if (q.isExistsJoin()){
-                q.setOrderBy("");                       
-                engine.execute(xquery, false); // Executa pela segunda vez, porém desta vez fragmenta apenas um dos joins
-            }               
-            
+        String database = conf.get(VPConst.DB_CONF_DATABASE);
+        if (database == null) {
+            throw new Exception("SGBDX database not specified in job configuration file");
         }
-        else {  // se contem collection         
-                            
-            // Efetua o parser da consulta para identificar os elementos contidos em funções de agregação ou order by, caso existam.
-            q.setOrderBy("");
-            engine = new XQueryEngine();
-            engine.execute(originalQuery, false);
-            
-            if (q.getPartitioningPath()!=null && !q.getPartitioningPath().equals("")) {
-                SimpleVirtualPartitioning svp = new SimpleVirtualPartitioning();
-                svp.setCardinalityOfElement(q.getLastCollectionCardinality());
-                svp.setNumberOfNodes(nfragments);                       
-                svp.getSelectionPredicateToCollection(q.getVirtualPartitioningVariable(), q.getPartitioningPath(), xquery);                                         
-                q.setAddedPredicate(true);
-            }
-        }
-    }
-    
-    private List<String> getQueries() throws IOException {
-        
-        Query q = Query.getUniqueInstance(true);
-        SubQuery sbq = SubQuery.getUniqueInstance(true);       
-        
-        SimpleVirtualPartitioning svp = SimpleVirtualPartitioning.getUniqueInstance(true);
-        LOG.info("Cardinality of selected element: " + svp.getCardinalityOfElement());
-        
-        if ( sbq.getSubQueries()!=null && sbq.getSubQueries().size() > 0 ){
-            
-            List<String> results = new ArrayList<String>(sbq.getSubQueries().size());
-            
-            for ( String initialFragments : sbq.getSubQueries() ) {
-                StringBuilder result = new StringBuilder();
 
-                result.append("<ORDERBY>" + q.getOrderBy() + "</ORDERBY>\r\n");
-                result.append("<ORDERBYTYPE>" + q.getOrderByType() + "</ORDERBYTYPE>\r\n");
-                result.append("<AGRFUNC>" + (q.getAggregateFunctions()!=null?q.getAggregateFunctions():"") + "</AGRFUNC>#\r\n");
-                
-                result.append(initialFragments);
-                results.add(result.toString());
-            
-            }
-            
-            return results;
-        }
-        else {
-            
-            if ( this.docQueriesWithoutFragmentation != null && this.docQueriesWithoutFragmentation.size() >0 ) { // para consulta que nao foram fragmentadas pois nao ha relacionamento de 1 para n.
-  
-                return this.docQueriesWithoutFragmentation;
-            }
-            else { // nao gerou fragmentos e nao ha consultas de entrada. Ocorreu algum erro durante o parser da consulta. 
-                return null;
-            }
-        }
+        return new Partitioner(hostname, port, username, password, database, type);
     }
 }

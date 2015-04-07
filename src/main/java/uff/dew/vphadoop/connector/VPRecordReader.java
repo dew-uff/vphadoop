@@ -2,18 +2,15 @@ package uff.dew.vphadoop.connector;
 import java.io.IOException;
 import java.util.Iterator;
 
-import mediadorxml.fragmentacaoVirtualSimples.SubQuery;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
-import uff.dew.vphadoop.db.DatabaseFactory;
+import uff.dew.svp.fragmentacaoVirtualSimples.SubQuery;
 
 
 
@@ -71,24 +68,11 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	public void initialize(InputSplit split, TaskAttemptContext ctxt)
 			throws IOException, InterruptedException {
 		
-	    try {
-	        readConfiguration(ctxt.getConfiguration());
-	    }
-	    catch (Exception e) {
-	        throw new IOException("Something went wrong while reading config parameters for database.");
-	    }
-	        
 		VPInputSplit vpSplit = (VPInputSplit) split;
 		
 		iterator = vpSplit.getQueriesIterator();
 		size = vpSplit.getLength();
 		counter = 0;
-	}
-
-	private void readConfiguration(Configuration conf) throws Exception {
-
-		// produce database object for this task
-		DatabaseFactory.produceSingletonDatabaseObject(conf);
 	}
 
 	@Override

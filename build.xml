@@ -5,6 +5,7 @@
 
   <!-- set global properties for this build -->
   <property name="hadoop.root"  location="/opt/hadoop"/>
+  <property name="svp.root" location="../svp"/>
   <property name="project.root" location="."/>
   <property name="src" location="${project.root}/src/main/java"/>
   <property name="build" location="${project.root}/build"/>
@@ -21,15 +22,22 @@
   <path id="project-libs">
 	<fileset dir="${lib}/">
 	  <include name="basex-xqj-1.2.3.jar" />
-      <include name="sedna-xqj-1.0.0.jar" />
+          <include name="sedna-xqj-1.0.0.jar" />
 	  <include name="xqj2-0.1.0.jar" />
 	  <include name="xqj-api-1.0.jar" />
 	</fileset>
+  </path>
+
+  <path id="svp-lib">
+        <fileset dir="${svp.root}/target/">
+          <include name="svp-1.0-SNAPSHOT.jar" />
+        </fileset>
   </path>
 	
   <path id="classpath">
   	<path refid="hadoop-lib-jars" />
   	<path refid="project-libs" />
+        <path refid="svp-lib" />
   </path>
 	
   <pathconvert property="manifest.classpath" pathsep=" " refid="classpath">
@@ -75,8 +83,9 @@
   	</jar>
 
   	<copy todir="${dist}" overwrite="false">
-        <path refid="project-libs"/>
-    </copy>
+            <path refid="project-libs"/>
+            <path refid="svp-lib"/>
+        </copy>
 
   </target>
 
@@ -99,8 +108,9 @@
         </jar>
 
         <copy todir="${dist}" overwrite="false">
-        <path refid="project-libs"/>
-    </copy>
+            <path refid="project-libs"/>
+            <path refid="svp-lib"/>
+        </copy>
 
   </target>
 

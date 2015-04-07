@@ -92,7 +92,7 @@
   
   <property>
       <name>vphadoop.db.database</name>
-      <value>xmark</value>
+      <value>expdb</value>
   </property>  
 
   <property>

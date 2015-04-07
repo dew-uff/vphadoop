@@ -24,7 +24,7 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.border.EtchedBorder;
 
-import mediadorxml.javaccparser.XQueryParser;
+import uff.dew.svp.javaccparser.XQueryParser;
 import uff.dew.vphadoop.VPConst;
 import uff.dew.vphadoop.client.runner.JobListener;
 import uff.dew.vphadoop.client.runner.JobRunner;

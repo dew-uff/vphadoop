@@ -1,0 +1,4 @@
+<ORDERBY></ORDERBY>
+<ORDERBYTYPE></ORDERBYTYPE>
+<AGRFUNC>{}</AGRFUNC>#
+<results> {    for $p in doc('auction.xml')/site/people/person[position() >= 17851 and position() < 20401]    let $e := $p/homepage    where count($e) = 0    return        <people_without_homepage>            {$p/name}        </people_without_homepage>} </results>

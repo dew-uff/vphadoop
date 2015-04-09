@@ -70,7 +70,7 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
         
         Path path = new Path("result.xml");
         OutputStream resultWriter = fs.create(path);
-        composer.combinePartialResults(resultWriter);
+        composer.combinePartialResults(resultWriter,false);
 
         long reduceQueryTimestamp = System.currentTimeMillis();
         

@@ -78,6 +78,10 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
             }
 
             boolean hasResults = sqe.executeQuery(out);
+
+            out.flush();
+            out.close();
+            out = null;
             
             // if it doesn't have results, delete the partial file
             if (!hasResults) {

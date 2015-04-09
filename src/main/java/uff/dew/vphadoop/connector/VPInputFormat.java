@@ -2,12 +2,16 @@ package uff.dew.vphadoop.connector;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.InputFormat;
@@ -66,6 +70,13 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
 
             List<String> queries = partitioner.executePartitioning(inputQuery,
                     nfragments);
+            
+            // this is to avoid getting consecutive intervals processed in the same machine.
+            // when we allocate a split to be processed in a task, if there is more than one 
+            // record in each split, in terms of load balancing, that would be the same as having
+            // a bigger split with all records merged. if there were a significant amount of data
+            // in this interval, this processor would take more time, no matter what.
+            Collections.shuffle(queries);
 
             long partitionTime = System.currentTimeMillis() - start;
             LOG.info("VP:partitioningTime: " + partitionTime + "ms");
@@ -85,6 +96,13 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
                 InputSplit is = new VPInputSplit(initialPos, qs);
                 splits.add(is);
             }
+            
+            FileSystem fs = FileSystem.get(conf);
+            Path p = new Path("hack.txt");
+            OutputStream os = fs.create(p,true);
+            partitioner.getExecutionContext().save(os);
+            os.close();
+            
         } catch (Exception e) {
             e.printStackTrace();
             throw new IOException(e);

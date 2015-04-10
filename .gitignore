@@ -2,4 +2,10 @@ vphadoop/bin
 vphadoop/build
 vphadoop/dist
 vphadoop/target
+vphadoop/.classpath
+vphadoop/.project
+vphadoop/.settings
 svp-lib/target
+svp-lib/.classpath
+svp-lib/.project
+svp-lib/.settings

@@ -73,25 +73,26 @@ public class HadoopJobRunner extends BaseJobRunner {
         String hdfsJarsDir = "libs";
         final String dbType = conf.get(VPConst.DB_CONF_TYPE);
         
-        if (dbType == null || dbType.length() == 0) {
-            throw new IOException("dbtype should not be null");
-        }
-        
-        FileFilter fileFilter = new FileFilter() {
-            @Override
-            public boolean accept(File file) {
-                if (dbType.equals(VPConst.DB_TYPE_SEDNA) && file.getName().indexOf("basex") != -1) {
-                    return false;
-                } else if (dbType.equals(VPConst.DB_TYPE_BASEX) && file.getName().indexOf("sedna") != -1){
-                    return false;
-                }
-                return true;
-            }
-        };
-        
-        JobHelper.copyLocalJarsToHdfs(localJarsDir, hdfsJarsDir, fileFilter, conf);
-        JobHelper.addHdfsJarsToDistributedCache(hdfsJarsDir, conf);
+//        if (dbType == null || dbType.length() == 0) {
+//            throw new IOException("dbtype should not be null");
+//        }
+//        
+//        FileFilter fileFilter = new FileFilter() {
+//            @Override
+//            public boolean accept(File file) {
+//                if (dbType.equals(VPConst.DB_TYPE_SEDNA) && file.getName().indexOf("basex") != -1) {
+//                    return false;
+//                } else if (dbType.equals(VPConst.DB_TYPE_BASEX) && file.getName().indexOf("sedna") != -1){
+//                    return false;
+//                }
+//                return true;
+//            }
+//        };
+//        
+//        JobHelper.copyLocalJarsToHdfs(localJarsDir, hdfsJarsDir, fileFilter, conf);
+//        JobHelper.addHdfsJarsToDistributedCache(hdfsJarsDir, conf);
         Job job = new Job(conf,"vphadoop");
+        job.setJarByClass(this.getClass());
         
         job.setInputFormatClass(VPInputFormat.class);
         

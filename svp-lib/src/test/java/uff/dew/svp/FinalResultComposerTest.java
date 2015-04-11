@@ -23,7 +23,7 @@ public class FinalResultComposerTest extends TestCase {
     
     private final static String PARTIAL_RESULTS_DIRECTORY = "test/partials/";
     
-    public void testExecuteSubQueryRegular() {
+    public void testExecuteFinalCompositionRegular() {
         
         try {
             FinalResultComposer frc = new FinalResultComposer();
@@ -62,7 +62,7 @@ public class FinalResultComposerTest extends TestCase {
         }
     }
     
-    public void testExecuteSubQueryAggregation() {
+    public void testExecuteFinalCompositionAggregation() {
         
         try {
             FinalResultComposer frc = new FinalResultComposer();

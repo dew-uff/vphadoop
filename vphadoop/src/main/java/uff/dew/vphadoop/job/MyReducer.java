@@ -74,7 +74,7 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
 
         long reduceQueryTimestamp = System.currentTimeMillis();
         
-        long queryExecutionTime = (reduceQueryTimestamp - dbLoadingTime);
+        long queryExecutionTime = (reduceQueryTimestamp - loadingTimestamp);
         LOG.debug("VP:reducer:query execution total time: " + queryExecutionTime + " ms.");
         context.getCounter(VPCounters.COMPOSING_TIME_TEMP_COLLECTION_QUERY_EXEC).increment(queryExecutionTime);
         context.getCounter(VPCounters.COMPOSING_TIME).increment(dbLoadingTime + queryExecutionTime);
@@ -96,6 +96,7 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
                 
                 BufferedInputStream is = new BufferedInputStream(fs.open(src));
                 ZipInputStream zis = new ZipInputStream(is);
+                zis.getNextEntry();
                 composer.loadPartial(zis);
                 zis.close();
             }

@@ -117,7 +117,7 @@ public class EnclosedExpr extends Clause {
 			this.setWaitingVarNameFunction(true);	
 			
 			Query q = Query.getUniqueInstance(true);
-			q.setLastReadFunction("average");
+			q.setLastReadFunction("avg");
 		}
 		
 		if (processChild & (node.jjtGetNumChildren()>0)){

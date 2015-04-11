@@ -411,7 +411,7 @@ public class PartitionerTest extends TestCase
         }
     }
     
-    public void generateTestBaselineForFinalResultComposer()
+    public void generateTestBaselineForFinalResultComposerRegular()
     {
         FileInputStream catalogStream = null;
         try{
@@ -420,6 +420,26 @@ public class PartitionerTest extends TestCase
             List<String> fragments = partitioner.executePartitioning(query_sd_regular, 10);
             for (int i = 0; i < fragments.size(); i++) {
                 saveToFile(FRAGMENTS_DIRECTORY + "frag_sd_regular_"+ String.format("%1$03d", i) +".txt", fragments.get(i));
+            }
+        }
+        catch (FileNotFoundException e) {
+            e.printStackTrace();
+            fail("should find catalog!");
+        } catch (PartitioningException e) {
+            e.printStackTrace();
+            fail("should partition fine!");
+        }
+    }
+    
+    public void generateTestBaselineForFinalResultComposerAggregation()
+    {
+        FileInputStream catalogStream = null;
+        try{
+            catalogStream = new FileInputStream(CATALOG_FILE);
+            Partitioner partitioner = new Partitioner(catalogStream);
+            List<String> fragments = partitioner.executePartitioning(query_sd_aggregation, 10);
+            for (int i = 0; i < fragments.size(); i++) {
+                saveToFile(FRAGMENTS_DIRECTORY + "frag_sd_aggregation_"+ String.format("%1$03d", i) +".txt", fragments.get(i));
             }
         }
         catch (FileNotFoundException e) {

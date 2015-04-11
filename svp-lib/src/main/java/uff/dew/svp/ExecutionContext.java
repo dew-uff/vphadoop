@@ -51,7 +51,7 @@ public class ExecutionContext {
                 
                 if (line.toUpperCase().contains("<AGRFUNC>")){ // soma 1 para excluir a tralha contida apos a tag <AGRFUNC>
                     
-                    String aggregateFunctions = line.substring(line.indexOf("<AGRFUNC>")+"<AGRFUNC>".length(), line.indexOf("</AGRFUNC>"));
+                    String aggregateFunctions = line.substring(line.indexOf("<AGRFUNC>{")+"<AGRFUNC>{".length(), line.indexOf("}</AGRFUNC>"));
                                                 
                     if (!aggregateFunctions.equals("") && !aggregateFunctions.equals("{}")) {
                         String[] functions = aggregateFunctions.split(","); // separa todas as funções de agregação utilizadas no return statement.

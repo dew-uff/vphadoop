@@ -21,7 +21,7 @@ public class SubQueryExecutorTest extends TestCase {
     private final static String DBNAME = "expdb";
     
     private final static String PARTIAL_RESULTS_DIRECTORY = "/tmp/";
-    private final static String FRAGMENTS_DIRECTORY = "test/fragments";
+    private final static String FRAGMENTS_DIRECTORY = "test/fragments/";
     
     private static final String fragment_sd_regular = "<ORDERBY></ORDERBY>\n"
             + "<ORDERBYTYPE></ORDERBYTYPE>\n"
@@ -212,10 +212,10 @@ public class SubQueryExecutorTest extends TestCase {
         }
     }
     
-    public void generatePartialsForFinalComposerTest() {
+    public void generatePartialsForFinalComposerTestRegular() {
         FileOutputStream fos = null;
         try {
-            File testDir = new File(FRAGMENTS_DIRECTORY);
+            File testDir = new File(FRAGMENTS_DIRECTORY + "regular");
             File[] fragfiles = testDir.listFiles(new FileFilter() {
                 @Override
                 public boolean accept(File f) {
@@ -230,6 +230,50 @@ public class SubQueryExecutorTest extends TestCase {
                 SubQueryExecutor sqe = new SubQueryExecutor(fragment);
                 sqe.setDatabaseInfo(DBHOST, DBPORT, DBUSERNAME, DBPASSWORD, DBNAME, DBTYPE);
                 String partialFilename = PARTIAL_RESULTS_DIRECTORY + "partial_sd_regular_"+String.format("%1$03d", i)+".xml";
+                fos = new FileOutputStream(partialFilename);
+                boolean hasResult = sqe.executeQuery(fos);
+                fos.flush();
+                fos.close();
+                fos = null;
+                if (!hasResult) {
+                    File f = new File(partialFilename);
+                    f.delete();
+                }
+            }
+        } catch (SubQueryExecutionException
+                | DatabaseException | IOException e) {
+            e.printStackTrace();
+            fail("should execute fine");
+        }
+        finally {
+            if (fos != null) {
+                try {
+                    fos.close();
+                } catch (IOException e) {
+                    fail("things are not good, my friend!");
+                }
+            }
+        }
+    }
+    
+    public void generatePartialsForFinalComposerTestAggregation() {
+        FileOutputStream fos = null;
+        try {
+            File testDir = new File(FRAGMENTS_DIRECTORY + "aggregation");
+            File[] fragfiles = testDir.listFiles(new FileFilter() {
+                @Override
+                public boolean accept(File f) {
+                    if (f.getName().startsWith("frag_sd_aggregation_")) {
+                        return true;
+                    }
+                    return false;
+                }
+            });
+            for (int i = 0; i < fragfiles.length; i++) {
+                String fragment = readContentFromFile(fragfiles[i]);
+                SubQueryExecutor sqe = new SubQueryExecutor(fragment);
+                sqe.setDatabaseInfo(DBHOST, DBPORT, DBUSERNAME, DBPASSWORD, DBNAME, DBTYPE);
+                String partialFilename = PARTIAL_RESULTS_DIRECTORY + "partial_sd_aggregation_"+String.format("%1$03d", i)+".xml";
                 fos = new FileOutputStream(partialFilename);
                 boolean hasResult = sqe.executeQuery(fos);
                 fos.flush();

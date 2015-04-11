@@ -1,0 +1,4 @@
+<ORDERBY></ORDERBY>
+<ORDERBYTYPE></ORDERBYTYPE>
+<AGRFUNC>{avg($p)=avg($p):summary/media, count($p)=count($p):summary/cont}</AGRFUNC>#
+<results> {    let $p := doc('auction.xml')/site/closed_auctions/closed_auction[position() >= 976 and position() < 1951]    return        <summary>            <cont>{count($p)}</cont>            <media>{avg($p/price)}</media>        </summary>} </results>

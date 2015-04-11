@@ -214,7 +214,8 @@ public class FinalResultComposer {
                         // System.out.println("FinalResult.getFinalResult(); depois alterar o expression:::"+expression);
 
                     } else { // agregacao sem caminho xpath. Ex.: count($c)
-                        expression = expression.replace("$c", "$c/"
+                        String variable = expression.substring(expression.indexOf('$'),expression.indexOf(')'));
+                        expression = expression.replace(variable, "$c/"
                                 + elementsAroundFunction);
                     }
 

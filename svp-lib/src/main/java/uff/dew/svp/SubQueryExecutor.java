@@ -37,6 +37,7 @@ public class SubQueryExecutor {
             subQuery = processFragment(fragment);
             if (subQuery.indexOf("order by") != -1) {
                 subQuery = insertOrderByElementInSubQuery(subQuery);
+                subQuery = removeOrderByFromSubquery(subQuery);
             }
             
             context = new ExecutionContext(fragment);
@@ -185,5 +186,15 @@ public class SubQueryExecutor {
         }
         
         return orderBy;
+    }
+    
+    private String removeOrderByFromSubquery(String query) {
+        String orderBy = query;
+        int orderByPos = orderBy.indexOf("order by");
+        orderBy = orderBy.substring(orderByPos).trim();
+        int returnPos = orderBy.indexOf("return");
+        orderBy = orderBy.substring(0, returnPos).trim();
+        
+        return query.replace(orderBy, "");
     }
 }

@@ -31,7 +31,8 @@ public class FinalResultComposerTest extends TestCase {
             FinalResultComposer frc = new FinalResultComposer(fos);
             frc.setDatabaseInfo(DBHOST, DBPORT, DBUSERNAME, DBPASSWORD, DBNAME, DBTYPE);
             frc.setExecutionContext(ExecutionContext.restoreFromStream(new FileInputStream("test/fragments/regular/frag_sd_regular_000.txt")));
-            
+            // necessary
+            frc.cleanup();
             File partialsDir = new File(PARTIAL_RESULTS_DIRECTORY+"regular");
             File[] partials = partialsDir.listFiles(new FilenameFilter() {
                 @Override
@@ -50,8 +51,6 @@ public class FinalResultComposerTest extends TestCase {
             }
             frc.combinePartialResults();
             fos.close();
-            // necessary!
-            frc.cleanup();
         } catch (FileNotFoundException e) {
             e.printStackTrace();
             fail("wrong!");
@@ -71,7 +70,8 @@ public class FinalResultComposerTest extends TestCase {
             FinalResultComposer frc = new FinalResultComposer(fos);
             frc.setDatabaseInfo(DBHOST, DBPORT, DBUSERNAME, DBPASSWORD, DBNAME, DBTYPE);
             frc.setExecutionContext(ExecutionContext.restoreFromStream(new FileInputStream("test/fragments/aggregation/frag_sd_aggregation_000.txt")));
-            
+            // necessary!
+            frc.cleanup();            
             File partialsDir = new File(PARTIAL_RESULTS_DIRECTORY+"aggregation");
             File[] partials = partialsDir.listFiles(new FilenameFilter() {
                 @Override
@@ -91,19 +91,15 @@ public class FinalResultComposerTest extends TestCase {
             
             frc.combinePartialResults();
             fos.close();
-            // necessary!
-            frc.cleanup();
         } catch (FileNotFoundException e) {
-            fail("wrong!");
             e.printStackTrace();
+            fail("wrong!");
         } catch (DatabaseException e) {
-            fail("wrong!");
             e.printStackTrace();
+            fail("wrong!");
         } catch (IOException e) {
-            fail("wrong!");
             e.printStackTrace();
+            fail("wrong!");
         }
     }
-    
-    
 }

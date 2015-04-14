@@ -12,7 +12,6 @@ import javax.xml.xquery.XQException;
 import javax.xml.xquery.XQResultSequence;
 
 import uff.dew.svp.db.Database;
-import uff.dew.svp.db.DatabaseFactory;
 import uff.dew.svp.fragmentacaoVirtualSimples.Query;
 import uff.dew.svp.fragmentacaoVirtualSimples.SubQuery;
 
@@ -24,6 +23,8 @@ public class TempCollectionStrategy implements CompositionStrategy {
     
     private boolean started = false;
     private OutputStream output = null;
+    private File tempDir;
+    private int count = 0;
     
     public TempCollectionStrategy(Database db, OutputStream output) {
         this.db = db;
@@ -33,24 +34,29 @@ public class TempCollectionStrategy implements CompositionStrategy {
     @Override
     public void loadPartial(InputStream partial) throws IOException {
         
-        try {
-            if (!started) {
-                started = true;
-                db.createCollection(TEMP_COLLECTION_NAME);
-            }
-            // TODO figure out a way to do it directly, without local copy
-            File tempFile = copyToLocalFs(partial);
-            db.loadFileInCollection(TEMP_COLLECTION_NAME, tempFile.getAbsolutePath());
-            tempFile.delete();
-        } catch (XQException e) {
-            throw new IOException("Error creating temp collection", e);
+        if (!started) {
+            started = true;
+            count = 0;
+            tempDir = createTempDirectory();
         }
+        copyToLocalFs(partial,tempDir);
     }
 
     @Override
     public void combinePartials() throws IOException {
-        Database db = DatabaseFactory.getSingletonDatabaseObject();
-        
+
+        try {
+            // if not explicitly flagged to delete, it will raise an exception if 
+            // the collection exists
+            if (tempDir.list().length > 0) {
+                db.createCollectionWithContent(TEMP_COLLECTION_NAME,
+                        tempDir.getAbsolutePath());
+            }
+            deleteTempDirectory(tempDir);
+        } catch (XQException e) {
+            throw new IOException("Temporary Collection already exists", e);
+        }
+
         SubQuery sbq = SubQuery.getUniqueInstance(true);
 
         // construct the query to get the result from the temp collection
@@ -333,8 +339,8 @@ public class TempCollectionStrategy implements CompositionStrategy {
         return finalResultXquery;
     }
     
-    private File copyToLocalFs(InputStream partial) throws IOException {
-        File tempFile = File.createTempFile("partial", ".xml");
+    private void copyToLocalFs(InputStream partial, File dir) throws IOException {
+        String tempFile = dir.getAbsolutePath() + "/partial_" + count++ + ".xml";
         FileOutputStream fos = new FileOutputStream(tempFile);
         final int BUFFER_SIZE = 2048;
         BufferedOutputStream bos = new BufferedOutputStream(fos, BUFFER_SIZE);
@@ -345,7 +351,34 @@ public class TempCollectionStrategy implements CompositionStrategy {
         }
         bos.flush();
         bos.close();
-
-        return tempFile;
     }
+    
+    private static File createTempDirectory() throws IOException {
+        final File temp;
+
+        temp = File.createTempFile("temp", Long.toString(System.nanoTime()), new File("/tmp"));
+
+        if(!(temp.delete()))
+        {
+            throw new IOException("Could not delete temp file: " + temp.getAbsolutePath());
+        }
+
+        if(!(temp.mkdir()))
+        {
+            throw new IOException("Could not create temp directory: " + temp.getAbsolutePath());
+        }
+
+        return (temp);
+    }
+    
+    private static void deleteTempDirectory(File tempDir) throws IOException {
+        
+        File[] innerFiles = tempDir.listFiles();
+        for(File f : innerFiles) {
+            f.delete();
+        }
+        
+        tempDir.delete();
+    }
+
 }

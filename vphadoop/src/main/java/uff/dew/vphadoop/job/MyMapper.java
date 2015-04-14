@@ -62,17 +62,17 @@ public class MyMapper extends Mapper<IntWritable, Text, NullWritable, Text> {
             Path filepath = null;
             
             if (zip) {
-                filename = PARTIALS_DIR + "/partial_" + key.toString() + "_" + context.getTaskAttemptID() + ".zip";
+                filename = PARTIALS_DIR + "/partial_" + String.format("%1$020d", key.get()) + "_" + context.getTaskAttemptID() + ".zip";
                 filepath = new Path(filename);
                 OutputStream zipFile = fs.create(filepath);
         
                 ZipOutputStream zipout = new ZipOutputStream(new BufferedOutputStream(zipFile));
-                ZipEntry entry = new ZipEntry("partial_" + key.toString() + ".xml");
+                ZipEntry entry = new ZipEntry("partial_" + String.format("%1$020d", key.get()) + ".xml");
                 zipout.putNextEntry(entry);
                 out = zipout;
             }
             else {
-                filename = PARTIALS_DIR + "/partial_" + key.toString() + "_" + context.getTaskAttemptID() + ".xml";
+                filename = PARTIALS_DIR + "/partial_" + String.format("%1$020d", key.get()) + "_" + context.getTaskAttemptID() + ".xml";
                 filepath = new Path(filename);
                 out = fs.create(filepath);
             }

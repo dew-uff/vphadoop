@@ -4,6 +4,9 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.zip.ZipInputStream;
 
 import org.apache.commons.logging.Log;
@@ -86,9 +89,20 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
 
         FileSystem fs = FileSystem.get(context.getConfiguration());
         boolean zip = context.getConfiguration().getBoolean(VPConst.COMPRESS_DATA, true);
+        
+        long sortTimestamp = System.currentTimeMillis();
+        
+        // need to sort list
+        List<String> partials = new ArrayList<String>();
+        for (Text filename : values) {
+            partials.add(filename.toString());
+        }
+        Collections.sort(partials);
 
-        for(Text filename : values) {
-            Path src = new Path(filename.toString());
+        LOG.debug("Time to sort the files: " + (System.currentTimeMillis() - sortTimestamp) + " ms.");
+        
+        for(String filename : partials) {
+            Path src = new Path(filename);
             if (zip) {
                 LOG.debug("Extracting partial " + filename.toString() + ".");
                 

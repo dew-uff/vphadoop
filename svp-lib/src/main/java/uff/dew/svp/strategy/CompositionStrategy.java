@@ -1,4 +1,4 @@
-package uff.dew.svp;
+package uff.dew.svp.strategy;
 
 import java.io.IOException;
 import java.io.InputStream;

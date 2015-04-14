@@ -21,6 +21,11 @@ import uff.dew.svp.db.DatabaseFactory;
 public class SubQuery {
     
     private static Log LOG = LogFactory.getLog(SubQuery.class);
+    
+    public static final String PARTIAL_BEGIN_ELEMENT = "<partialResult>\r\n";
+    public static final String PARTIAL_END_ELEMENT = "</partialResult>\r\n";
+    public static final String PARTIAL_IDORDEM_BEGIN_ELEMENT = "<idOrdem>";
+    public static final String PARTIAL_IDORDEM_END_ELEMENT = "</idOrdem>\r\n";
 
 	protected static SubQuery sbq;
 	protected ArrayList<String> subqueries = null;
@@ -129,7 +134,7 @@ public class SubQuery {
                     out.write(getTitle().getBytes());
                     
                     // write partial result root element
-                    out.write("<partialResult>\r\n".getBytes());
+                    out.write(PARTIAL_BEGIN_ELEMENT.getBytes());
                     
                     // write partial result constructor element
                     String header = sbq.getConstructorElement() + "\r\n";
@@ -153,12 +158,12 @@ public class SubQuery {
                 out.write("\r\n".getBytes());
 
                 if (!q.isOrderByClause()) { // se a consulta original nao possui order by adicione o elemento idOrdem
-                    String partialOrderElement = "<idOrdem>" + getIntervalBeginning(xquery) + "</idOrdem>\r\n";
+                    String partialOrderElement = PARTIAL_IDORDEM_BEGIN_ELEMENT + getIntervalBeginning(xquery) + PARTIAL_IDORDEM_END_ELEMENT;
                     out.write(partialOrderElement.getBytes());
                 }
 
                 // write partial result root ending element
-                out.write("</partialResult>\r\n".getBytes());
+                out.write(PARTIAL_END_ELEMENT.getBytes());
                 // forces output of all data before returning
                 out.flush();
             }

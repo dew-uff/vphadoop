@@ -1,4 +1,4 @@
-package uff.dew.svp;
+package uff.dew.svp.strategy;
 
 import java.io.BufferedOutputStream;
 import java.io.File;

@@ -9,12 +9,17 @@ import uff.dew.svp.catalog.Catalog;
 import uff.dew.svp.db.DatabaseException;
 import uff.dew.svp.db.DatabaseFactory;
 import uff.dew.svp.fragmentacaoVirtualSimples.Query;
+import uff.dew.svp.strategy.CompositionStrategy;
+import uff.dew.svp.strategy.ConcatenationStrategy;
+import uff.dew.svp.strategy.TempCollectionStrategy;
 
 public class FinalResultComposer {
 
     private OutputStream output;
 
     private CompositionStrategy compositionStrategy;
+    
+    private boolean forceTempCollectionMode = false;
     
     public FinalResultComposer(OutputStream output) {
         this.output = output;
@@ -38,6 +43,10 @@ public class FinalResultComposer {
         Catalog.get().setDatabaseObject(DatabaseFactory.getSingletonDatabaseObject());
     }
     
+    public void setForceTempCollectionExecutionMode(boolean flag) {
+        this.forceTempCollectionMode = flag;
+    }
+    
     /**
      * Set execution context
      * 
@@ -47,16 +56,17 @@ public class FinalResultComposer {
         Query q = Query.getUniqueInstance(true);
         String orderby = q.getOrderBy();
         Hashtable<String,String> aggrFunctions = q.getAggregateFunctions();
-        if (orderby != null && !orderby.equals("")) {
+        if (forceTempCollectionMode) {
+            compositionStrategy = new TempCollectionStrategy(DatabaseFactory.getSingletonDatabaseObject(),output);
+        }
+        else if (orderby != null && !orderby.equals("")) {
             compositionStrategy = new TempCollectionStrategy(DatabaseFactory.getSingletonDatabaseObject(),output);
         } 
         else if (aggrFunctions != null && aggrFunctions.size() > 0) {
             compositionStrategy = new TempCollectionStrategy(DatabaseFactory.getSingletonDatabaseObject(),output);
         }
         else {
-            // TODO implement ConcatenationStrategy
-            compositionStrategy = new TempCollectionStrategy(DatabaseFactory.getSingletonDatabaseObject(),output);
-            //compositionStrategy = new ConcatenationStrategy(output);
+            compositionStrategy = new ConcatenationStrategy(output);
         }
     }
     

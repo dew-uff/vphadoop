@@ -38,17 +38,11 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
 		// construct db object from configuration file 
         Configuration conf = context.getConfiguration();
 
-        FinalResultComposer composer = new FinalResultComposer();
-        
-        // the constructFinalQuery (below) was originally executed using the same context
-        // previously used to retrieve a partial result (at the coordinator node). 
-        // That means that some singletons objects were populated when compiling the final 
-        // result. Now we don't have that information, so we need to restore it.
         FileSystem fs = FileSystem.get(conf);
-        InputStream file = fs.open(new Path("hack.txt"));
-        composer.setExecutionContext(ExecutionContext.restoreFromStream(file));
-        file.close();
-        
+        Path path = new Path("result.xml");
+        OutputStream resultWriter = fs.create(path);
+        FinalResultComposer composer = new FinalResultComposer(resultWriter);
+
         try {
             composer.setDatabaseInfo(conf.get(VPConst.DB_CONF_HOST), 
                 conf.getInt(VPConst.DB_CONF_PORT,5050), conf.get(VPConst.DB_CONF_USERNAME), 
@@ -56,28 +50,32 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
                 conf.get(VPConst.DB_CONF_TYPE));
         }
         catch (DatabaseException e) {
-            LOG.error("Something wrong with database configuration.",e);
-        }
+            throw new IOException("Something wrong with database configuration.",e);
+        } 
         
+        // the constructFinalQuery (below) was originally executed using the same context
+        // previously used to retrieve a partial result (at the coordinator node). 
+        // That means that some singletons objects were populated when compiling the final 
+        // result. Now we don't have that information, so we need to restore it.
+        InputStream file = fs.open(new Path("hack.txt"));
+        composer.setExecutionContext(ExecutionContext.restoreFromStream(file));
+        file.close();
         
         // put every partial result in a temp collection at the database
         loadPartialsIntoDatabase(composer, values, context);
         
         long loadingTimestamp = System.currentTimeMillis();
         long dbLoadingTime = (loadingTimestamp - startTimestamp);
-        LOG.debug("VP:reducer:tempDBLoadingTime: " + dbLoadingTime + " ms.");
-        context.getCounter(VPCounters.COMPOSING_TIME_TEMP_COLLECTION_CREATION).increment(dbLoadingTime);
+        LOG.debug("Time to load partials: " + dbLoadingTime + " ms.");
+        context.getCounter(VPCounters.COMPOSING_TIME_LOAD_PARTIALS).increment(dbLoadingTime);
         
-        Path path = new Path("result.xml");
-        OutputStream resultWriter = fs.create(path);
-        composer.combinePartialResults(resultWriter,false);
+        composer.combinePartialResults();
 
-        long reduceQueryTimestamp = System.currentTimeMillis();
-        
-        long queryExecutionTime = (reduceQueryTimestamp - loadingTimestamp);
-        LOG.debug("VP:reducer:query execution total time: " + queryExecutionTime + " ms.");
-        context.getCounter(VPCounters.COMPOSING_TIME_TEMP_COLLECTION_QUERY_EXEC).increment(queryExecutionTime);
-        context.getCounter(VPCounters.COMPOSING_TIME).increment(dbLoadingTime + queryExecutionTime);
+        long compositionTimestamp = System.currentTimeMillis();
+        long compositionExecutionTime = (compositionTimestamp - loadingTimestamp);
+        LOG.debug("Time to combine all partials: " + compositionExecutionTime + " ms.");
+        context.getCounter(VPCounters.COMPOSING_TIME_COMBINE_PARTIALS).increment(compositionExecutionTime);
+        context.getCounter(VPCounters.COMPOSING_TIME_TOTAL).increment(dbLoadingTime + compositionExecutionTime);
         
         resultWriter.flush();
         resultWriter.close();
@@ -85,7 +83,7 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
     
 
     private void loadPartialsIntoDatabase(FinalResultComposer composer, Iterable<Text> values, Context context) throws IOException {
-    	long timestamp = System.currentTimeMillis();
+
         FileSystem fs = FileSystem.get(context.getConfiguration());
         boolean zip = context.getConfiguration().getBoolean(VPConst.COMPRESS_DATA, true);
 
@@ -104,7 +102,5 @@ public class MyReducer extends Reducer<NullWritable, Text, Text, NullWritable> {
                 composer.loadPartial(fs.open(src));
             }
         }
-        LOG.debug("loadPartialsIntoDb:time to copy from hdfs to local: " + (System.currentTimeMillis() - timestamp) + " ms.");
-        timestamp = System.currentTimeMillis();
     }
 }

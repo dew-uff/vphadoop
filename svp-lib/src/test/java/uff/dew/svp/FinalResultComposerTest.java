@@ -26,7 +26,9 @@ public class FinalResultComposerTest extends TestCase {
     public void testExecuteFinalCompositionRegular() {
         
         try {
-            FinalResultComposer frc = new FinalResultComposer();
+            FileOutputStream fos = new FileOutputStream(FINAL_RESULT_DIR + "final_sd_regular.xml");
+            
+            FinalResultComposer frc = new FinalResultComposer(fos);
             frc.setDatabaseInfo(DBHOST, DBPORT, DBUSERNAME, DBPASSWORD, DBNAME, DBTYPE);
             frc.setExecutionContext(ExecutionContext.restoreFromStream(new FileInputStream("test/fragments/regular/frag_sd_regular_000.txt")));
             
@@ -46,26 +48,27 @@ public class FinalResultComposerTest extends TestCase {
                 frc.loadPartial(fis);
                 fis.close();
             }
-            
-            FileOutputStream fos = new FileOutputStream(FINAL_RESULT_DIR + "final_sd_regular.xml");
-            frc.combinePartialResults(fos,true);
+            frc.combinePartialResults();
             fos.close();
+            // necessary!
+            frc.cleanup();
         } catch (FileNotFoundException e) {
-            fail("wrong!");
             e.printStackTrace();
+            fail("wrong!");
         } catch (DatabaseException e) {
-            fail("wrong!");
             e.printStackTrace();
+            fail("wrong!");
         } catch (IOException e) {
-            fail("wrong!");
             e.printStackTrace();
+            fail("wrong!");
         }
     }
     
     public void testExecuteFinalCompositionAggregation() {
         
         try {
-            FinalResultComposer frc = new FinalResultComposer();
+            FileOutputStream fos = new FileOutputStream(FINAL_RESULT_DIR + "final_sd_aggregation.xml");
+            FinalResultComposer frc = new FinalResultComposer(fos);
             frc.setDatabaseInfo(DBHOST, DBPORT, DBUSERNAME, DBPASSWORD, DBNAME, DBTYPE);
             frc.setExecutionContext(ExecutionContext.restoreFromStream(new FileInputStream("test/fragments/aggregation/frag_sd_aggregation_000.txt")));
             
@@ -86,9 +89,10 @@ public class FinalResultComposerTest extends TestCase {
                 fis.close();
             }
             
-            FileOutputStream fos = new FileOutputStream(FINAL_RESULT_DIR + "final_sd_aggregation.xml");
-            frc.combinePartialResults(fos,true);
+            frc.combinePartialResults();
             fos.close();
+            // necessary!
+            frc.cleanup();
         } catch (FileNotFoundException e) {
             fail("wrong!");
             e.printStackTrace();

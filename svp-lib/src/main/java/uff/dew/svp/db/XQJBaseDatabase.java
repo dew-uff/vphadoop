@@ -12,7 +12,7 @@ import javax.xml.xquery.XQResultSequence;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-public abstract class BaseDatabase implements Database {
+public abstract class XQJBaseDatabase implements Database {
 	
 	private class ExecutionContext {
 		private XQPreparedExpression prepExp = null;
@@ -51,7 +51,7 @@ public abstract class BaseDatabase implements Database {
 		}
 	}
 	
-	private static Log LOG = LogFactory.getLog(BaseDatabase.class);
+	private static Log LOG = LogFactory.getLog(XQJBaseDatabase.class);
     
     protected XQDataSource dataSource;
     protected String databaseName;
@@ -73,7 +73,7 @@ public abstract class BaseDatabase implements Database {
 		conn = null;
 	}
 	
-    public XQResultSequence executeQuery(String query) throws XQException {
+    protected XQResultSequence baseExecuteQuery(String query) throws XQException {
     	LOG.debug("executeQuery: " + query);
     	long start = System.currentTimeMillis();
     	
@@ -85,14 +85,14 @@ public abstract class BaseDatabase implements Database {
         return result;
     }
 
-	public String executeQueryAsString(String query) throws XQException {
-        XQResultSequence rs = executeQuery(query);
+	protected String baseExecuteQueryAsString(String query) throws XQException {
+        XQResultSequence rs = baseExecuteQuery(query);
         String result = stringalizeResult(rs);
         freeResources(rs);
 		return result;
     }
 	
-    protected void executeCommand(String command) throws XQException {
+    protected void baseExecuteCommand(String command) throws XQException {
         LOG.debug("command: " + command);
         long start = System.currentTimeMillis();
         ExecutionContext ec = new ExecutionContext();
@@ -101,7 +101,7 @@ public abstract class BaseDatabase implements Database {
         LOG.debug("Command execution time: " + (System.currentTimeMillis() - start) + " ms.");
     }
     
-    public void freeResources(XQResultSequence rs) throws XQException {
+    protected void baseFreeResources(XQResultSequence rs) throws XQException {
     	ExecutionContext qe = queriesInExecution.remove(rs);
     	if (qe != null) {
     		LOG.debug("Freeing resouces for QueryContext: " + rs.hashCode());

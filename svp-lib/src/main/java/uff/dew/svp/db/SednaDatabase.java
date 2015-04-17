@@ -20,7 +20,7 @@ import org.apache.commons.logging.LogFactory;
 
 import uff.dew.svp.catalog.Element;
 
-public class SednaDatabase extends BaseDatabase {
+public class SednaDatabase extends XQJBaseDatabase {
     
     private static Log LOG = LogFactory.getLog(SednaDatabase.class);
 
@@ -41,7 +41,7 @@ public class SednaDatabase extends BaseDatabase {
     public void deleteCollection(String collectionName) throws XQException {
         boolean shouldCloseSession = openSession();
     	if (existsCollection(collectionName)) {
-            executeCommand("DROP COLLECTION '" + collectionName + "'");
+            baseExecuteCommand("DROP COLLECTION '" + collectionName + "'");
         }
     	if (shouldCloseSession) {
     		closeSession();
@@ -50,7 +50,7 @@ public class SednaDatabase extends BaseDatabase {
 
     @Override
     public void createCollection(String collectionName) throws XQException {
-        executeCommand("CREATE COLLECTION '" + collectionName + "'");
+        baseExecuteCommand("CREATE COLLECTION '" + collectionName + "'");
     }
     
     @Override
@@ -128,11 +128,7 @@ public class SednaDatabase extends BaseDatabase {
     public void loadFileInCollection(String collectionName, String filePath)
             throws XQException {
         File file = new File(filePath);
-        executeCommand("LOAD '" + filePath + "' '" + file.getName() + "' '" + collectionName + "'"); 
-    }
-    
-    private boolean existsCollection(String collectionName) throws XQException {
-        return getCardinality("/collections/collection[@name='"+collectionName+"']", "$collections", null) > 0?true:false;
+        baseExecuteCommand("LOAD '" + filePath + "' '" + file.getName() + "' '" + collectionName + "'"); 
     }
     
     @Override
@@ -170,57 +166,6 @@ public class SednaDatabase extends BaseDatabase {
         return map;
 	}
 	
-    private Map<String, Element> parseSchemaDocument(XMLStreamReader stream) throws XMLStreamException {
-        
-        Element element = null;
-        Map<String, Element> map = new HashMap<String, Element>();
-        String currentPath = "";
-        
-        while (stream.hasNext()) {
-            int type = stream.next();
-            
-            switch (type) {
-            case XMLStreamReader.START_ELEMENT:
-                if (stream.getLocalName() == "element") {
-                    // we got a new element
-                    Element newElement = new Element();
-                    if (element != null) {
-                        // if current element is not null, that means the new element
-                        // is subelement of the current element, so set parent
-                        newElement.setParent(element);
-                    }
-                    // now new element is the current element
-                    element = newElement;
-
-                    String name = stream.getAttributeValue(null, "name");
-                    String count = stream.getAttributeValue(null, "total_nodes");
-                    if (count != null && name != null) {
-                        int cardinality = Integer.parseInt(count);
-                        // set current path to include this element
-                        currentPath += "/" + name;
-                        element.setCount(cardinality);
-                        element.setName(name);
-                        element.setPath(currentPath);
-                        map.put(element.getPath(), element);
-                    }                    
-                }
-
-                break;
-            case XMLStreamReader.END_ELEMENT:
-                if (stream.getLocalName() == "element") {
-                    // we finished processing this element, return current path and
-                    // current element to the values of the parent element
-                    currentPath = currentPath.substring(0, currentPath.lastIndexOf('/'));
-                    if (element != null) {
-                        element = element.getParent();
-                    }
-                }
-            }
-        }            
-        
-        return map;
-    }
-
     @Override
     public String[] getParentElement(String elementName, String collectionName,
             String docName) {
@@ -271,5 +216,75 @@ public class SednaDatabase extends BaseDatabase {
             LOG.error("Something wrong while getting documents names for collection!!");                    
         }
         return documents;
+    }
+
+    @Override
+    public XQResultSequence executeQuery(String query) throws XQException {
+        return baseExecuteQuery(query);
+    }
+
+    @Override
+    public String executeQueryAsString(String query) throws XQException {
+        return baseExecuteQueryAsString(query);
+    }
+
+    @Override
+    public void freeResources(XQResultSequence rs) throws XQException {
+        baseFreeResources(rs);
+    }
+
+    private boolean existsCollection(String collectionName) throws XQException {
+        return getCardinality("/collections/collection[@name='"+collectionName+"']", "$collections", null) > 0?true:false;
+    }
+    
+    private Map<String, Element> parseSchemaDocument(XMLStreamReader stream) throws XMLStreamException {
+        
+        Element element = null;
+        Map<String, Element> map = new HashMap<String, Element>();
+        String currentPath = "";
+        
+        while (stream.hasNext()) {
+            int type = stream.next();
+            
+            switch (type) {
+            case XMLStreamReader.START_ELEMENT:
+                if (stream.getLocalName() == "element") {
+                    // we got a new element
+                    Element newElement = new Element();
+                    if (element != null) {
+                        // if current element is not null, that means the new element
+                        // is subelement of the current element, so set parent
+                        newElement.setParent(element);
+                    }
+                    // now new element is the current element
+                    element = newElement;
+
+                    String name = stream.getAttributeValue(null, "name");
+                    String count = stream.getAttributeValue(null, "total_nodes");
+                    if (count != null && name != null) {
+                        int cardinality = Integer.parseInt(count);
+                        // set current path to include this element
+                        currentPath += "/" + name;
+                        element.setCount(cardinality);
+                        element.setName(name);
+                        element.setPath(currentPath);
+                        map.put(element.getPath(), element);
+                    }                    
+                }
+
+                break;
+            case XMLStreamReader.END_ELEMENT:
+                if (stream.getLocalName() == "element") {
+                    // we finished processing this element, return current path and
+                    // current element to the values of the parent element
+                    currentPath = currentPath.substring(0, currentPath.lastIndexOf('/'));
+                    if (element != null) {
+                        element = element.getParent();
+                    }
+                }
+            }
+        }            
+        
+        return map;
     }
 }

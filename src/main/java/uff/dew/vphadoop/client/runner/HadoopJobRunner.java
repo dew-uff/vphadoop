@@ -1,8 +1,6 @@
 package uff.dew.vphadoop.client.runner;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileFilter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
@@ -20,7 +18,6 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import uff.dew.vphadoop.VPConst;
-import uff.dew.vphadoop.client.JobHelper;
 import uff.dew.vphadoop.connector.VPInputFormat;
 import uff.dew.vphadoop.job.MyMapper;
 import uff.dew.vphadoop.job.MyReducer;
@@ -62,35 +59,15 @@ public class HadoopJobRunner extends BaseJobRunner {
     	conf.addResource(new Path(jobConfigFile));
 
         conf.set(VPConst.XQUERY, xquery);
-        conf.set(VPConst.CATALOG_FILE_PATH, catalogFile);
+        if (catalogFile != null){
+            conf.set(VPConst.CATALOG_FILE_PATH, catalogFile);
+        }
         
         job = setupJob(conf);
     }
     
     private Job setupJob(Configuration conf) throws IOException {
         
-        String localJarsDir = "./dist";
-        String hdfsJarsDir = "libs";
-        final String dbType = conf.get(VPConst.DB_CONF_TYPE);
-        
-//        if (dbType == null || dbType.length() == 0) {
-//            throw new IOException("dbtype should not be null");
-//        }
-//        
-//        FileFilter fileFilter = new FileFilter() {
-//            @Override
-//            public boolean accept(File file) {
-//                if (dbType.equals(VPConst.DB_TYPE_SEDNA) && file.getName().indexOf("basex") != -1) {
-//                    return false;
-//                } else if (dbType.equals(VPConst.DB_TYPE_BASEX) && file.getName().indexOf("sedna") != -1){
-//                    return false;
-//                }
-//                return true;
-//            }
-//        };
-//        
-//        JobHelper.copyLocalJarsToHdfs(localJarsDir, hdfsJarsDir, fileFilter, conf);
-//        JobHelper.addHdfsJarsToDistributedCache(hdfsJarsDir, conf);
         Job job = new Job(conf,"vphadoop");
         job.setJarByClass(this.getClass());
         
@@ -120,6 +97,7 @@ public class HadoopJobRunner extends BaseJobRunner {
     @Override
     protected void doRunJob() throws IOException, InterruptedException, ClassNotFoundException {
         job.submit();
+        LOG.info("Hadoop Job ID : " + job.getJobID());
     }
 
     @Override

@@ -4,16 +4,6 @@
   <!-- MR configuration -->
 
   <property>
-      <name>fs.default.name</name>
-      <value>hdfs://localhost:54310</value>
-  </property>
-
-  <property>
-      <name>mapred.job.tracker</name>
-      <value>localhost:54311</value>
-  </property>
-
-  <property>
       <name>mapred.tasktracker.map.tasks.maximum</name>
       <value>2</value>
   </property> 
@@ -22,12 +12,7 @@
       <name>mapred.task.timeout</name>
       <value>0</value>
   </property> 
-<!--
-  <property>
-      <name>mapred.child.java.opts</name>
-      <value>-Xmx512m</value>
-  </property>
- --> 
+
   <property>
       <name>mapred.map.child.java.opts</name>
       <value>-Xmx512m</value>
@@ -37,6 +22,7 @@
       <name>mapred.reduce.child.java.opts</name>
       <value>-Xmx1024m</value>
   </property>
+
 <!--  
   <property>
       <name>mapred.compress.map.output</name>
@@ -58,6 +44,7 @@
       <value>5</value>
   </property>
 -->  
+
   <!-- VPHADOOP configuration  -->
   
   <property>
@@ -77,17 +64,17 @@
 
   <property>
       <name>vphadoop.db.port</name>
-      <value>5050</value>
+      <value>1984</value>
   </property>  
 
   <property>
       <name>vphadoop.db.username</name>
-      <value>SYSTEM</value>
+      <value>admin</value>
   </property>  
 
   <property>
       <name>vphadoop.db.password</name>
-      <value>MANAGER</value>
+      <value>admin</value>
   </property>  
   
   <property>
@@ -97,7 +84,7 @@
 
   <property>
       <name>vphadoop.db.type</name>
-      <value>SEDNA</value>
+      <value>BASEX</value>
   </property>  
   
   <property>

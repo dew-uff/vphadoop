@@ -7,10 +7,12 @@ import java.io.IOException;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.conf.Configured;
+import org.apache.hadoop.util.Tool;
+import org.apache.hadoop.util.ToolRunner;
 
 import uff.dew.vphadoop.client.runner.HadoopJobRunner;
-import uff.dew.vphadoop.client.runner.JobListener;
-import uff.dew.vphadoop.client.runner.JobRunner;
 
 /**
  * The main class for the CLI version of VPHadoop.
@@ -18,98 +20,59 @@ import uff.dew.vphadoop.client.runner.JobRunner;
  * @author Gabriel Tessarolli
  *
  */
-public class VPCLI {
+public class VPCLI extends Configured implements Tool {
 	
     private static final Log LOG = LogFactory.getLog(VPCLI.class);
     
     private static String resultFile;
 	private static String catalogFile;
 	
-    private static JobRunner job;
-    
-    /**
-     * Listener to get updates from the Job. When map or reduce status
-     * changes, it is notified, so the user can be notified too
-     */
-    private static JobListener myJobListener = new JobListener() {
-        
-        int mapProgress, reduceProgress;
-        
-        @Override
-        public void reduceProgressChanged(int value) {
-            reduceProgress = value;
-            printStatus();
-            
-        }
-        
-        @Override
-        public void mapProgressChanged(int value) {
-            mapProgress = value;
-            printStatus();
-        }
-        
-        @Override
-        public void completed(boolean successful) {
-            if (successful) {
-            	LOG.info("Total processing time: " + (System.currentTimeMillis()-startTimestamp) + " ms.");
-                try {
-                    saveResult();
-                } catch (IOException e) {
-                    LOG.error("Something went wrong while saving the result: "
-                            + e.getMessage());
-                    System.exit(1);
-                }                
-            }
-            else {
-                LOG.error("Erro!!");
-                System.exit(1);
-            }
-        }
-        
-        private void printStatus() {
-            LOG.info("Map: " + mapProgress + "%   Reduce: " + reduceProgress + "%");
-        }
-        
-    };
-	private static long startTimestamp;
-
     /**
      * The main function for CLI version
      * 
      * @param args Array of parameters.
      */
     public static void main(String[] args) {
-
-        if (args.length < 3) {
-        	LOG.error("Usage: java -jar vphadoop.jar "
-        	                + "<jobconfiguration.xml> " //0
-                            + "<query.xq> "            //1
-                            + "<output_file> "         //2
-                            + "[<catalog.xml>]");      //3
-            System.exit(0);
+        
+        int res;
+        try {
+            res = ToolRunner.run(new Configuration(), new VPCLI(), args);
+        } catch (Exception e) {
+            LOG.error(e.getMessage());
+            res = -1;
+        }
+        System.exit(res);
+    }
+     
+    @Override
+    public int run(String[] args) throws Exception {
+    
+        if (args.length < 2) {
+        	LOG.error("Usage: vphadoop "
+                            + "<query.xq> "            //0
+                            + "<output_file> "         //1
+                            + "[<catalog.xml>]");      //2
+            return 1;
         }
 
         // query file
         String query = null;
         try {
-            query = readContentFromFile(args[1]);
+            query = readContentFromFile(args[0]);
             verifyQuery(query);
         } catch (FileNotFoundException e) {
         	LOG.error("Query file was not found!");
-            System.exit(1);
+            return 1;
         } catch (IOException e) {
             LOG.error("Something went wrong while reading query file!");
-            System.exit(1);
-        } catch (Exception e) {
-            LOG.error(e.getMessage());
-            System.exit(1);
-        }
+            return 1;
+        } 
         
-        resultFile = args[2];
+        resultFile = args[1];
 
         // has catalog
-        if (args.length == 4) {
-        	catalogFile = args[3];
+        if (args.length == 3) {
+        	catalogFile = args[2];
         }
         else {
         	catalogFile = null;
@@ -117,16 +80,15 @@ public class VPCLI {
         
         // process the query
         try {
-            processQuery(query,args[0]);
+            processQuery(query);
+            
         } catch (IOException e) {
         	LOG.error("Something went wrong while processing the query: "
                             + e.getMessage());
-            System.exit(1);
-        } catch (JobException e) {
-        	LOG.error("Something went wrong while processing the query: "
-                            + e.getMessage());
-            System.exit(1);
+            return 1;
         }
+        
+        return 0;
     }
 
     /**
@@ -196,27 +158,27 @@ public class VPCLI {
      * @param dbConf The configuration file for DB access
      * @throws IOException
      * @throws JobException
+     * @throws InterruptedException 
+     * @throws ClassNotFoundException 
      */
-    private static void processQuery(String query, String jobConfFilename) throws IOException, JobException {
-        HadoopJobRunner hadoopJob = new HadoopJobRunner(query);
-        hadoopJob.setJobConfiguration(jobConfFilename);
-        hadoopJob.setCatalog(catalogFile);
-        hadoopJob.addListener(myJobListener);
+    private void processQuery(String query) throws IOException, ClassNotFoundException, InterruptedException {
         
-        startTimestamp = System.currentTimeMillis();
+        Configuration conf = getConf();
+        HadoopJobRunner hadoopJob = new HadoopJobRunner(query, conf);
+        hadoopJob.setCatalog(catalogFile);
+        
+        long startTimestamp = System.currentTimeMillis();
         
         hadoopJob.runJob();
         
-        job = hadoopJob;
+        long hadoopExecutionTimestamp = System.currentTimeMillis();
+        
+        LOG.info("Hadoop execution time: " + (hadoopExecutionTimestamp - startTimestamp) + " ms.");
+        
+        hadoopJob.saveResultInFile(resultFile);
+        
+        long copyTimestamp = System.currentTimeMillis();
+        
+        LOG.info("Copy result time: " + (copyTimestamp - hadoopExecutionTimestamp) + " ms.");
     }
-
-    /**
-     * Hook function invoked to get the result when the job is successfully completed
-     * 
-     * @throws IOException
-     */
-    protected static void saveResult() throws IOException {
-        job.saveResultInFile(resultFile);
-    }
-    
 }

@@ -22,50 +22,27 @@ import uff.dew.vphadoop.connector.VPInputFormat;
 import uff.dew.vphadoop.job.MyMapper;
 import uff.dew.vphadoop.job.MyReducer;
 
-public class HadoopJobRunner extends BaseJobRunner {
+public class HadoopJobRunner {
     
     private static final Log LOG = LogFactory.getLog(HadoopJobRunner.class);
     
     private static final String OUTPUT_PATH = "output";
     
-    private String jobConfigFile;
     private String catalogFile;
-	
+    private String query;
+    private Configuration conf;
     private Path outputPath;
-    
     private Job job;
 
-    public HadoopJobRunner(String query) {
-        super(query);
-    }
-    
-    public void setJobConfiguration(String jobConfFilename) {
-        this.jobConfigFile = jobConfFilename;        
+    public HadoopJobRunner(String query, Configuration conf) {
+        this.query = query;
+        this.conf = conf;
     }
     
     public void setCatalog(String catalogFile) {
         this.catalogFile = catalogFile;
     }
-    
-    @Override
-    public int getType() {
-        return JobRunner.HADOOP;
-    }
 
-    @Override
-    protected void prepare() throws Exception {
-        
-    	Configuration conf = new Configuration();
-    	conf.addResource(new Path(jobConfigFile));
-
-        conf.set(VPConst.XQUERY, xquery);
-        if (catalogFile != null){
-            conf.set(VPConst.CATALOG_FILE_PATH, catalogFile);
-        }
-        
-        job = setupJob(conf);
-    }
-    
     private Job setupJob(Configuration conf) throws IOException {
         
         Job job = new Job(conf,"vphadoop");
@@ -94,45 +71,16 @@ public class HadoopJobRunner extends BaseJobRunner {
         return job;
     }
     
-    @Override
-    protected void doRunJob() throws IOException, InterruptedException, ClassNotFoundException {
-        job.submit();
-        LOG.info("Hadoop Job ID : " + job.getJobID());
-    }
-
-    @Override
-    protected int getMapProgress() {
-        try {
-            return Math.round(job.mapProgress()*100);
-        } catch (IOException e) {
-            return -1;
+    public void runJob() throws IOException, InterruptedException, ClassNotFoundException {
+        
+        conf.set(VPConst.XQUERY, query);
+        if (catalogFile != null){
+            conf.set(VPConst.CATALOG_FILE_PATH, catalogFile);
         }
-    }
-
-    @Override
-    protected int getReduceProgress() {
-        try {
-            return Math.round(job.reduceProgress()*100);
-        } catch (IOException e) {
-            return -1;
-        }
-    }
-
-    @Override
-    public boolean isFinished() {
-        try {
-            return job.isComplete();
-        } catch (IOException e) {
-            return true;
-        }
-    }
-    
-    public boolean isSuccessFul() {
-        try {
-            return job.isSuccessful();
-        } catch (IOException e) {
-            return false;
-        }
+        
+        job = setupJob(conf);
+        
+        job.waitForCompletion(true);
     }
 
     public String getResult() {
@@ -158,7 +106,6 @@ public class HadoopJobRunner extends BaseJobRunner {
         }
     }
 
-    @Override
     public void saveResultInFile(String filename) throws IOException {
         if (filename == null) {
             return;

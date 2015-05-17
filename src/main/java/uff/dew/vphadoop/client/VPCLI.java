@@ -180,5 +180,7 @@ public class VPCLI extends Configured implements Tool {
         long copyTimestamp = System.currentTimeMillis();
         
         LOG.info("Copy result time: " + (copyTimestamp - hadoopExecutionTimestamp) + " ms.");
+        
+        LOG.info("Total execution time: " + (copyTimestamp - startTimestamp) + " ms.");
     }
 }

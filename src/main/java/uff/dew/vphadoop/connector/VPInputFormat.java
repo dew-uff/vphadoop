@@ -92,7 +92,8 @@ public class VPInputFormat extends InputFormat<IntWritable, Text> {
                     LOG.trace("Split["+i+"]Record["+j+"] = Queries["+qcount+"] = " + queries.get(qcount));
                     qcount++;
                 }
-                int initialPos = Integer.parseInt(SubQuery.getIntervalBeginning(queries.get(0)));
+                SubQuery sbq = partitioner.getExecutionContext().getSubQueryObj();
+                int initialPos = Integer.parseInt(SubQuery.getIntervalBeginning(queries.get(0),sbq));
                 InputSplit is = new VPInputSplit(initialPos, qs);
                 splits.add(is);
             }

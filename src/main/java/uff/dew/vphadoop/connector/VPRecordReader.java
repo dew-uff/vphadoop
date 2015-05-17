@@ -79,7 +79,8 @@ public class VPRecordReader extends RecordReader<IntWritable, Text> {
 	public boolean nextKeyValue() throws IOException, InterruptedException {
         if (iterator.hasNext()) {
             currentValue = iterator.next();
-            currentKey = Integer.parseInt(SubQuery.getIntervalBeginning(currentValue));
+            // TODO: find out whether the SubQuery is really necessary in this case
+            currentKey = Integer.parseInt(SubQuery.getIntervalBeginning(currentValue, null));
             counter++;
             return true;
         } 

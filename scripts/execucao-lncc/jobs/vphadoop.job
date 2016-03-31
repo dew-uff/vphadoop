@@ -1,0 +1,157 @@
+#$ -S /bin/bash
+#$ -q linux.q
+#$ -cwd
+#$ -j y
+
+# where to send notifications
+EMAIL=gabriel.tessarolli@gmail.com
+
+# timeout of query execution
+TIMEOUT=2d
+
+# espera as variaveis abaixo. colocar com -v ao submeter o job com qsub
+# nruns = numero de repeticoes. ex: nruns=5
+# dbsize = tamanho da base. ex: dbsize=1GB
+# queries = ids das queries a executar. ex: queries="3 5"
+# ntasks = numero de tasks (max 8)
+# dbtype = "sedna" ou "basex"
+
+# necessary variables
+if [ "$nruns" = "" ] || [ "$dbsize" = "" ] || [ "$queries" = "" ] || [ "$ntasks" = "" ] || [ "$dbtype" = "" ] || [ "$nsplits" = "" ] || [ "$nrecords" = "" ] ; then
+    echo "one expected variable was not set. see the script for instructions."
+    exit 1
+fi
+
+export WS_VPHADOOP=${HOME}/ws-vphadoop
+export PE_NODEFILE=$TMPDIR/hostfile
+export VPLOG_DIR=${WS_VPHADOOP}/${JOB_ID}-resultados
+
+nnodes="$(wc -l $PE_NODEFILE | cut -d' ' -f 1)"
+nprocessors=$(( nnodes*ntasks ))
+nfragments="$(( nsplits*nrecords ))"
+
+mkdir -p ${VPLOG_DIR}
+
+# amount of memory to basex server java process
+export BASEX_MEM=-Xmx10G
+
+# amount of memory for each hadoop process
+mem_xmx=-Xmx128M
+
+# amount of memory for each task process
+mem_task_xmx=-Xmx1024M
+
+echo "**** JOB_SETUP *****"
+echo "Approach: VPHADOOP" >> /tmp/job_header.txt
+echo "JOB ID: ${JOB_ID}" >> /tmp/job_header.txt
+echo "DB SIZE: ${dbsize}" >> /tmp/job_header.txt
+echo "QUERIES: ${queries}" >> /tmp/job_header.txt
+echo "#RUNS: ${nruns}" >> /tmp/job_header.txt
+echo "#FRAGMENTS: ${nfragments}" >> /tmp/job_header.txt
+echo "#NODES: ${nnodes}" >> /tmp/job_header.txt
+echo "#PROCESSORS: ${nprocessors}" >> /tmp/job_header.txt
+echo "Mem for each hadoop process: ${mem_xmx}" >> /tmp/job_header.txt
+echo "Mem for each task process: ${mem_task_xmx}" >> /tmp/job_header.txt
+echo "Mem for BaseX: ${BASEX_MEM}" >> /tmp/job_header.txt
+echo "**** JOB_SETUP *****" >> /tmp/job_header.txt
+
+echo "$(cat /tmp/job_header.txt)"
+mail -s "VPHADOOP Job ${JOB_ID} started" $EMAIL < /tmp/job_header.txt
+rm /tmp/job_header.txt
+
+
+result="FAILURE"
+
+# SGBDX startup
+${dbtype}-start-all-using-tmp.sh ${dbsize} ${WS_VPHADOOP}
+if [ "$?" = "0" ]; then
+
+    # hadoop framework startup
+    export HADOOP_NAMENODE_OPTS="${mem_xmx} $HADOOP_NAMENODE_OPTS"
+    export HADOOP_SECONDARYNAMENODE_OPTS="${mem_xmx} $HADOOP_SECONDARYNAMENODE_OPTS"
+    export HADOOP_DATANODE_OPTS="${mem_xmx} $HADOOP_DATANODE_OPTS"
+    export HADOOP_JOBTRACKER_OPTS="${mem_xmx} $HADOOP_JOBTRACKER_OPTS"
+    export HADOOP_TASKTRACKER_OPTS="${mem_xmx} $HADOOP_TASKTRACKER_OPTS"
+
+    export HADOOP_CONF_DIR=${WS_VPHADOOP}/$JOB_ID
+    export MAX_MAP_TASKS=${ntasks}
+    myhadoop-configure.sh -c $HADOOP_CONF_DIR -s /tmp/$USER/$JOB_ID
+
+    # try to stop any ongoing hadoop process
+    stop-all.sh
+
+    start-all.sh
+
+    sleep 1m
+
+    result="SUCCESS"
+
+    # queries execution
+    for query in $queries; do
+        
+        for (( run=1; run<=${nruns}; run++ )); do
+            log_file=${VPLOG_DIR}/log_nnodes_${nnodes}_ntasks_${ntasks}_q_${query}_nfrag_${nfragments}_nsplits_${nsplits}_nrecords_${nrecords}_run_${run}.txt
+            echo "|-> $(date)    Query ${query} - Nfrag ${nfragments} - NSplits ${nsplits} - NRecords ${nrecords} - Run ${run} | ${log_file} <-|"
+
+            if [ -f $log_file ]; then
+                rm $log_file
+            fi
+            if [ -f /tmp/output.xml ]; then
+                rm /tmp/output.xml
+            fi
+            ${dbtype}-drop-tmp-db.sh ${WS_VPHADOOP}
+            echo "------------------------------------------" 1>> $log_file
+            echo "JOB ID           : ${JOB_ID}" 1>> $log_file
+            echo "# nodes          : ${nnodes}" 1>> $log_file
+            echo "# tasks per node : ${ntasks}" 1>> $log_file
+            echo "Query            : ${query}" 1>> $log_file
+            echo "# runs           : ${nruns}" 1>> $log_file
+            echo "Run ID           : ${run}" 1>> $log_file
+            echo "DB size          : ${dbsize}" 1>> $log_file
+            echo "Num splits       : ${nsplits}" 1>> $log_file
+            echo "Num records      : ${nrecords}" 1>> $log_file
+            echo "------------------------------------------" 1>> $log_file
+            query_file=${HOME}/new-queries/c${query}.xq
+            if [[ $dbsize == *"_MD" ]]; then
+                query_file=${HOME}/new-queries/c${query}_md.xq
+            fi
+            timeout $TIMEOUT hadoop jar vphadoop-1.0-SNAPSHOT.jar -conf configuration-${dbtype}.xml \
+                                         -Dvphadoop.svp.numsplits=${nsplits} \
+                                         -Dvphadoop.svp.numrecords=${nrecords} \
+                                         -Dmapred.map.child.java.opts=${mem_task_xmx} \
+                                         -Dmapred.reduce.child.java.opts=${mem_task_xmx} \
+                                         ${query_file} \
+                                         /tmp/output.xml \
+                                         ${HOME}/xmark/catalogs/${dbsize}/catalog.xml 1>>${log_file} 2>&1
+            if [ "$?" = "124" ]; then
+                echo "Timeout in query ${query} run ${run}!"
+                echo "Timeout!!" >> $log_file
+                result="PARTIAL SUCCESS"
+                break 2
+            elif [ "$(grep 'Failed map tasks=1' ${log_file} | wc -l)" = "1" ]; then
+                echo "Error in map task during query ${query} run ${run}!"
+                echo "MapError" >> $log_file
+                result="FAILURE"
+                break 2
+            elif [ "$(grep 'Failed reduce tasks=1' ${log_file} | wc -l)" = "1" ]; then
+                echo "Error in reduce task during query ${query} run ${run}!"
+                echo "ReduceError" >> $log_file
+                result="FAILURE"
+                break 2
+            else    
+                echo "Size of output : $(du -b /tmp/output.xml | cut -f 1) bytes" 1>> $log_file
+            fi
+        done
+    done
+
+    # hadoop framework cleanup
+    stop-all.sh
+    myhadoop-cleanup.sh
+
+fi
+
+# SGBDX cleanup
+${dbtype}-stop-all-using-tmp.sh ${WS_VPHADOOP}
+
+mail -s "VPHADOOP Job ${JOB_ID} finished with $result" $EMAIL < ${WS_VPHADOOP}/vphadoop.job.o${JOB_ID}
+sleep 5s

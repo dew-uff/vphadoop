@@ -1,0 +1,138 @@
+#$ -S /bin/bash
+#$ -q linux.q
+#$ -cwd
+#$ -j y
+
+# espera as variaveis abaixo. colocar com -v ao submeter o job com qsub
+# nruns = numero de repeticoes. ex: nruns=5
+# dbsize = tamanho da base. ex: dbsize=1GB
+# queries = ids das queries a executar. ex: queries="3 5"
+# nthreads = numero de threads por no (max 8)
+
+# where to send notifications
+EMAIL=gabriel.tessarolli@gmail.com
+
+# timeout of query execution
+TIMEOUT=2d
+
+if [ "$nruns" = "" ] || [ "$dbsize" = "" ] || [ "$queries" = "" ] || [ "$nthreads" = "" ] || [ "$nfragments" = ""  ]; then
+    echo "one expected variable was not set. see the script for instructions."
+    exit 1
+fi
+
+# amount of memory to basex server java process
+export BASEX_MEM=-Xmx10G
+
+# amount of memory to mpj java process
+export MPJ_HEAPMEM=1024m
+
+export WS_PARTIXVP=${HOME}/ws-newpartix
+export PE_NODEFILE=$TMPDIR/hostfile
+export VPLOG_DIR=${WS_PARTIXVP}/${JOB_ID}-resultados
+export PARTIXVP_DIR=${WS_PARTIXVP}/temp_${JOB_ID}
+
+mkdir -p ${PARTIXVP_DIR}/SVP
+mkdir -p ${PARTIXVP_DIR}/partialResults
+mkdir -p ${PARTIXVP_DIR}/finalResult
+
+cp ${WS_PARTIXVP}/.basex ${PARTIXVP_DIR}
+
+cd ${PARTIXVP_DIR}
+
+nnodes="$(wc -l $PE_NODEFILE | cut -d' ' -f 1)"
+nprocessors=$(( $nnodes * $nthreads ))
+
+echo "**** JOB_SETUP *****" >> /tmp/job_header.txt
+echo "Approach: NEWPARTIX" >> /tmp/job_header.txt
+echo "DB SIZE: ${dbsize}" >> /tmp/job_header.txt
+echo "QUERIES: ${queries}" >> /tmp/job_header.txt
+echo "#RUNS: ${nruns}" >> /tmp/job_header.txt
+echo "#FRAGMENTS: ${nfragments}" >> /tmp/job_header.txt
+echo "#NODES: ${nnodes}" >> /tmp/job_header.txt
+echo "#PROCESSORS: ${nprocessors}" >> /tmp/job_header.txt
+echo "**** JOB_SETUP *****" >> /tmp/job_header.txt
+
+echo "$(cat /tmp/job_header.txt)"
+
+# send email to notify job init
+mail -s "NEWPARTIX Job ${JOB_ID} started" $EMAIL < /tmp/job_header.txt
+rm /tmp/job_header.txt
+
+mkdir -p ${VPLOG_DIR}
+
+# BASEX startup
+catalog_file=${HOME}/xmark/catalogs/${dbsize}/catalog.xml
+
+result="FAILURE"
+
+basex-start-all-using-tmp.sh ${dbsize} ${PARTIXVP_DIR}
+if [ "$?" = "0" ]; then
+
+    result="SUCCESS"
+
+    # queries execution
+    for query in $queries; do
+        for (( run=1; run<=${nruns}; run++ )); do
+            ntry=1
+            exception=1
+            while ! [ "$exception" = "0" ] && [ $ntry -le 3 ]; do
+                log_file=${VPLOG_DIR}/log_nnodes_${nnodes}_nthreads_${nthreads}_q_${query}_run_${run}.txt
+                echo "|-> $(date)    Query ${query} - Run ${run} - Try ${ntry} | ${log_file} <-|"
+                if [ -f $log_file ]; then
+                    rm $log_file
+                fi
+    	
+                # cleanup
+                basex-drop-tmp-db.sh ${PARTIXVP_DIR}
+                rm ${PARTIXVP_DIR}/SVP/* 2> /dev/null
+                rm ${PARTIXVP_DIR}/partialResults/* 2> /dev/null
+                rm ${PARTIXVP_DIR}/finalResult/* 2> /dev/null
+
+                echo "------------------------------------------" 1>> $log_file
+                echo "# nodes          : ${nnodes}" 1>> $log_file
+                echo "# threads        : ${nthreads}" 1>> $log_file
+                echo "# fragments      : ${nfragments}" 1>> $log_file
+                echo "Query            : ${query}" 1>> $log_file
+                echo "# runs           : ${nruns}" 1>> $log_file
+                echo "Run ID           : ${run}" 1>> $log_file
+                echo "DB size          : ${dbsize}" 1>> $log_file
+                echo "------------------------------------------" 1>> $log_file
+                query_file=${HOME}/new-queries/c${query}.xq
+                if [[ $dbsize == *"_MD" ]]; then
+                    query_file=${HOME}/new-queries/c${query}_md.xq
+                fi
+                echo "------------------------------------------" 1>> $log_file
+
+                timeout $TIMEOUT mpirun -np ${nprocessors} -machinefile $TMPDIR/hostfile java -cp $MPJ_HOME/lib/mpj.jar:${WS_PARTIXVP}/partixvp2-b556e.jar \
+    		        -Djava.library.path=$MPJ_HOME/lib -Xmx${MPJ_HEAPMEM} -Dlog4j.configuration=file:${WS_PARTIXVP}/log4j.properties \
+                    uff.dew.partixvp2.App 0 0 native \
+                    ${nthreads} ${nnodes} ${PARTIXVP_DIR} ${nfragments} BASEX expdb ${catalog_file} ${query_file} 1>> $log_file 2>&1
+    			if [ "$?" = "124" ]; then
+                    echo "Timeout in query ${query} run ${run}!"
+                    echo "Timeout!!" >> $log_file
+                    result="PARTIAL SUCCESS"
+                    break 3
+                else
+                    echo "Size of output : $(du -b $PARTIXVP_DIR/finalResult/xqueryAnswer.xml | cut -f 1) bytes" 1>> $log_file 	
+                fi
+
+    		    exception=$(grep -i "exception" ${log_file} | wc -l)
+                echo "|-> $(date)    Query ${query} - Run ${run} - Try ${ntry}: finished with ${exception} exceptions <-|"
+    		    ((ntry++))
+            done
+            
+            if ! [ "$exception" = "0" ]; then
+                result="PARTIAL SUCCESS"
+                break 2
+            fi
+        done
+    done
+
+fi
+
+# BASEX cleanup
+basex-stop-all-using-tmp.sh ${PARTIXVP_DIR}
+
+mail -s "NEWPARTIX Job ${JOB_ID} finished with $result" $EMAIL < ${WS_PARTIXVP}/newpartix.job.o${JOB_ID}
+sleep 5s
+

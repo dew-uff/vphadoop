@@ -1,0 +1,119 @@
+#$ -S /bin/bash
+#$ -q linux.q
+#$ -pe hadoop 8
+#$ -cwd
+#$ -j y
+
+# where to send notifications
+EMAIL=gabriel.tessarolli@gmail.com
+
+# timeout of query execution
+TIMEOUT=2d
+
+# variaveis esperadas
+# queries=ids da queries. ex: queries="10 11 12"
+# nruns=# de vezes cada query tem que rodar
+# dbsize=(1GB,10GB,1GB_MD,10GB_MD)
+if [ "$queries" = "" ] || [ "$nruns" = "" ] || [ "$dbsize" = "" ]; then 
+    echo "#### Error ####"
+    echo "At least one necessary variable was not set."
+    echo "#### Error ####"
+    exit 1
+fi
+
+# necessary for BASEX init
+export PE_NODEFILE=$TMPDIR/hostfile
+# how much memory BASEX is allowed to use
+export BASEX_MEM=-Xmx10G
+
+echo "**** JOB_SETUP *****" >> /tmp/job_header.txt
+echo "Approach: STDALONE" >> /tmp/job_header.txt
+echo "DB SIZE: ${dbsize}" >> /tmp/job_header.txt
+echo "QUERIES: ${queries}" >> /tmp/job_header.txt
+echo "#RUNS: ${nruns}" >> /tmp/job_header.txt
+echo "BASEX MEM: ${BASEX_MEM}" >> /tmp/job_header.txt
+echo "**** JOB_SETUP *****" >> /tmp/job_header.txt
+echo "$(cat /tmp/job_header.txt)"
+
+# send email to notify job init
+mail -s "STANDALONE Job ${JOB_ID} started" $EMAIL < /tmp/job_header.txt
+rm /tmp/job_header.txt
+
+# from where the scripts will be executed
+WORKSPACE=${HOME}/ws-stdalone2
+
+# this is where logs will be posted to
+log_dir=${WORKSPACE}/${JOB_ID}-resultados
+mkdir -p $log_dir
+
+# go to workspace dir
+# remind that this directory should have a .basex file with the configuration 
+# you need in the BaseX server
+cd $WORKSPACE
+
+result="FAILURE"
+
+# start BaseX server calling the script for it
+basex-start-all-using-tmp.sh $dbsize $WORKSPACE
+if [ "$?" = "0" ]; then
+
+    result="SUCCESS"
+
+    # Make time only output elapsed time in seconds
+    TIMEFORMAT=%R
+
+    # iterate over the queries
+    for query in $queries; do
+        # execute the query 'nruns' times
+        for (( run=1; run<=${nruns}; run++ )); do
+            # this is the result file for this execution
+            log_file=${log_dir}/log_query_${query}_run_${run}.txt
+            rm $log_file 2> /dev/null
+            
+            # remove result file if exists
+            rm /tmp/stdalone-output.xml 2> /dev/null
+            
+            # print some status info on the job log
+            echo "$(date) Query ${query} - Run ${run} | ${log_file}"
+            
+            # print header at the result file
+            echo "Job id : ${JOB_ID}" >> $log_file
+            echo "Query  : ${query}" >> $log_file
+            echo "Run id : ${run}" >> $log_file
+            echo "# runs : ${nruns}" >> $log_file
+            echo "Dbsize : ${dbsize}" >> $log_file
+            echo "DB mem size : ${BASEX_MEM}" >> $log_file
+            echo "Errors log: " >> $log_file
+            echo "Execution time (sec): " >> $log_file
+
+            # this is the query file
+            query_file=${HOME}/new-queries/c${query}_std.xq
+            if [[ $dbsize == *"_MD" ]]; then
+                query_file=${HOME}/new-queries/c${query}_md.xq
+            fi
+
+            # execute the BaseX client, using 'time' to gather execution time.
+            # time emits its messages to stderr
+            { timeout $TIMEOUT /usr/bin/time -f %e basexclient -Uadmin -Padmin -o/tmp/stdalone-output.xml ${query_file} 1>>$log_file 2>>$log_file; } 2>> $log_file 
+            if [ "$?" = "124" ]; then
+                echo "Timeout in query ${query} run ${run}!"
+                echo "Ended because of timeout of $TIMEOUT" >> $log_file
+                result="PARTIAL SUCCESS"
+                # with timeout the database continues to run the queries, even if client process dies
+                # so we need to stop
+                break 2
+            elif ! [ "$(grep 'Out of Main Memory' $log_file | wc -l)" = "0" ]; then
+                echo "Out of Memory Error! in query ${query}"
+                result="PARTIAL SUCCESS"
+                break
+            else
+                echo "Size of output : $(du -b /tmp/stdalone-output.xml | cut -f 1) bytes" 1>> $log_file
+            fi
+        done
+    done
+fi
+
+basex-stop-all-using-tmp.sh $WORKSPACE
+
+mail -s "STANDALONE Job ${JOB_ID} finished with $result" $EMAIL < ${WORKSPACE}/stdalone.job.o${JOB_ID}
+sleep 5s

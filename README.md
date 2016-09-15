@@ -1,4 +1,6 @@
-Project to execute xquery using virtual partitioning and Hadoop cluster.
+# VPHadoop
+
+VPHadoop is a project to execute XQuery using virtual partitioning in a Hadoop cluster.
 
 To build
 
